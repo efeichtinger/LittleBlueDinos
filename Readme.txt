@@ -1,2 +1,1 @@
-This repository contains the scripts for survival analyses of the Florida Scrub-Jays (Aphelocoma coerulescens). I am using
-the long-term data set on a marked population of scrub-jays at Archbold Biological Station. 
+This repository contains the scripts for survival analyses of the Florida Scrub-Jays (Aphelocoma coerulescens). I am using the long-term data set on a marked population of scrub-jays at Archbold Biological Station. 
