@@ -3,10 +3,10 @@
 #UPDATED September 2015
 
 #use this on laptop
-setwd("C:/Users/Erin/Dropbox/Jay survival analyses")
+setwd("C:/Users/Erin/LittleBlueDinos")
 
 #use this on school desktop
-setwd("C:/Users/efeichtinger/Dropbox/Jay survival analyses")
+setwd("C:/Users/efeichtinger/LittleBlueDinos")
 
 library(survival)
 library(car)
