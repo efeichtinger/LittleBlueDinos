@@ -43,7 +43,10 @@ brdrs$LastObsDate <- as.numeric(brdrs$LastObsDate)
 brdrs["censorshipnov"] <- NA
 brdrs$censorshipnov <- 1
 
-#change to 1 if bird died within 1 year of breeding, change to less than April of previous year?
+#this is not quite right. I want the day of the April census the year 
+#following becoming a breeder for the first time, so instead of 365, 
+#something like April Census year of 1st breeding + 1? I don't know 
+#the R snytax for this.
 brdrs$censorshipnov[which(brdrs$days>=365)]<- 0
 
 #censorship status for breeding span after first year, exper breeders
@@ -56,16 +59,41 @@ brdrs$censorship[which(brdrs$LastObsDate=="2015-06-17")]<-0
 brdrs.new <- subset(brdrs, FirstYr > 1980, select=ID:censorship)
 
 #I don't know if it is necessary to take out the NA's
-#brdrs.new <- na.omit(brdrs.new)
+brdrs.new <- na.omit(brdrs.new)
 
 #Create survival object - have to find some way to account for birds with negative days
 my.survyr <- Surv(brdrs.new$yrs, brdrs.new$censorship)
 my.survdy <- Surv(brdrs.new$days, brdrs.new$censorship)
 my.fityr <- survfit(my.survyr~1)
 my.fitdy <- survfit(my.survdy~1)
-plot(my.fitdy, xlim=c(0,4000), xlab="Days", ylab="Survival")
-plot(my.fityr, xlim=c(0,15), xlab="Years", ylab= "Survival")
+plot(my.fitdy, xlim=c(0,4000), xlab="Days", ylab="Survival", main="Breeders")
+plot(my.fityr, xlim=c(0,15), xlab="Years", ylab= "Survival", main="Breeders")
 #summary(my.fitdy)
+
+#Simple cox model for novice and experienced breeders 
+jay.cox <- coxph(my.survyr~1, data= brdrs.new)
+summary(jay.cox)
+#year of first breeding
+jay.yr <- coxph(my.survyr~brdrs.new$Yr, data=brdrs.new)
+summary(jay.yr)
+#age at first breeding (for some, minimum age)
+jay.age <- coxph(my.survyr~brdrs.new$AgeFirstBreed)
+summary(jay.age)
+
+
+jay.exp <- survreg(my.survyr~1, dist="exponential")
+summary(jay.exp)
+
+jay.wb <- survreg(my.survyr~1, dist = "weibull")
+summary(jay.wb)
+
+
+
+#Survival object splitting up novice and experienced breeders
+#Not sure if this is the correct way to do this 
+nov.surv <- Surv(brdrs.new$yrs, brdrs.new$censorshipnov, type=c('right'))
+nov.fit <- survfit(nov.surv~1)
+plot(nov.fit, xlim=c(0,1), xlab="Years", ylab="Cumulative Survival", main="Novice and Exp Breeders")
 
 #time variable not numeric it says 
 surv.rcens <- Surv(brdrs.new$LastObsDate~brdrs.new$FirstYr, brdrs.new$censorship)
@@ -74,11 +102,11 @@ surv.rcens <- Surv(brdrs.new$LastObsDate~brdrs.new$FirstYr, brdrs.new$censorship
 cox.fit <- coxph(my.survdy~1, data= brdrs.new)
 null <- basehaz(cox.fit)
 plot(null)
+plot(null, log="xy", xlab = "Hazard (log)", ylab= "Time(log)")
 summary(null)
 summary(cox.fit)
 cox.fit
 
-#error
 yr.fit <- coxph(my.survdy~brdrs.new$Yr, data = brdrs.new)
 yr.fit
 summary(yr.fit)
