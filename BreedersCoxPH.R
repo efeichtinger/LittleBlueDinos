@@ -80,7 +80,7 @@ summary(jay.yr)
 jay.age <- coxph(my.survyr~brdrs.new$AgeFirstBreed)
 summary(jay.age)
 
-
+#
 jay.exp <- survreg(my.survyr~1, dist="exponential")
 summary(jay.exp)
 
@@ -96,7 +96,7 @@ nov.fit <- survfit(nov.surv~1)
 plot(nov.fit, xlim=c(0,1), xlab="Years", ylab="Cumulative Survival", main="Novice and Exp Breeders")
 
 #time variable not numeric it says 
-surv.rcens <- Surv(brdrs.new$LastObsDate~brdrs.new$FirstYr, brdrs.new$censorship)
+#surv.rcens <- Surv(brdrs.new$LastObsDate~brdrs.new$FirstYr, brdrs.new$censorship)
 
 #basic model
 cox.fit <- coxph(my.survdy~1, data= brdrs.new)
