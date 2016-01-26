@@ -30,6 +30,7 @@ str(birds2)
 
 colnames(birds2)[7] <- "LastObsDate"
 
+
 #convert dates to date format
 birds2$FldgDate <- as.Date(birds2$FldgDate, format = "%m/%d/%Y")
 birds2$LastObsDate <- as.Date(birds2$LastObsDate, format = "%m/%d/%Y")
@@ -51,6 +52,7 @@ birds2["censorship"] <- 1
 #If last observed date = 10/14/2015, 0 for still alive today
 birds2$censorship[which(birds2$LastObsDate=="2015-10-14")]<-0
 
+
 year <- as.POSIXlt(birds2$FldgDate)$year+1900
 birds2["FYear"] <- year
 
@@ -62,6 +64,7 @@ birds2$yrs <- as.numeric(birds2$yrs)
 
 
 #Create survival object based off Gordon's Cactus Finch example
+<<<<<<< HEAD
 survobj <- Surv(birds2$days, birds2$censorship, type =c('right'))
 jay.lifetab <- survfit(survobj~1)
 jay.fit <- plot(jay.lifetab, xlab = "Time (days)", 
@@ -79,3 +82,18 @@ summary(jay.int)
 
 jay.weib <- survreg(survobj~1, dist = "weibull")
 summary(jay.weib)
+survobj <- Surv(birds2$yrs, birds2$censorship)
+jay.lifetab <- survfit(survobj~1)
+jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
+      ylab = "Cumulative Survival", main = "FL Scrub Jay survival")
+
+jay.cox <- coxph(survobj~1, data= birds2)
+jay.coxsex <- coxph(survobj ~ birds2$sex, data = birds2)
+
+#Exponential model
+#First fit with just intercept 
+jay.int <- survreg(Surv(birds2$days, birds2$censorship)~1, dist="exponential")
+## error of invalid survival times for this distribution
+
+jay.weib <- survreg(survobj~1, dist = "weibull")
+
