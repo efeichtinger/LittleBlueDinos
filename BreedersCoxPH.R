@@ -116,4 +116,11 @@ sex.fit <- coxph(my.survdy~brdrs.new$Sex, data = brdrs.new)
 sex.fit
 summary(sex.fit)
 
+#year of first breeding
+jay.yr <- coxph(my.survyr~brdrs.new$Yr, data=brdrs.new)
+summary(jay.yr)
+#age at first breeding (for some, minimum age)
+jay.age <- coxph(my.survyr~brdrs.new$AgeFirstBreed)
+summary(jay.age)
+
 #Anova in car package
