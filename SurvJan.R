@@ -42,7 +42,7 @@ date.diff<- birds2$LastObsDate-birds2$FldgDate
 birds2["days"] <- date.diff
 birds2$days <-as.numeric(birds2$days)
 #and survival period in years 
-birds2["yrs"] <- birds2$days/365
+birds2["yrs"] <- birds2$days/365.25
 
 #very important piece of code for the model to work properly 
 birds2 <- subset(birds2, birds2$days > 0)
