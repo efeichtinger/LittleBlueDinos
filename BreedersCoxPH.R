@@ -43,9 +43,11 @@ brdrs["yrs"] <- brdrs$days/365
 brdrs$FirstDateBred <- as.numeric(brdrs$FirstDateBred)
 brdrs$LastObsDate <- as.numeric(brdrs$LastObsDate)
 
+#### Note: lines below NOT THE CORRECT WAY TO DO THIS!!!! For novice breeders
+
 #add censorship, 0 = alive/right censored, 1 = dead after 1st year breeding, novice
-brdrs["censorshipnov"] <- NA
-brdrs$censorshipnov <- 1
+#brdrs["censorshipnov"] <- NA
+#brdrs$censorshipnov <- 1
 
 #this is not quite right. I want the day of the April census the year 
 #following becoming a breeder for the first time, so instead of 365, 
@@ -61,6 +63,8 @@ brdrs$censorship[which(brdrs$LastObsDate=="2015-06-17")]<-0
 
 #get rid of birds breeding before 1980
 brdrs.new <- subset(brdrs, FirstYr > 1980, select=ID:censorship)
+#very important piece of code for the model to work properly 
+brdrs.new <- subset(brdrs.new, brdrs.new$days > 0 & brdrs.new$yrs > 0)
 
 #I don't know if it is necessary to take out the NA's
 brdrs.new <- na.omit(brdrs.new)
