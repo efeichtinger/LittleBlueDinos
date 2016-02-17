@@ -1,3 +1,7 @@
+## February 16, 2016
+## Use SurvJan.R and refernce reports starting with FSJ_Surv.Rmd
+
+
 #Breeders CoxPH - COX PH analyses for FSJ breeders 
 #Summer 2015
 #UPDATED September 2015
