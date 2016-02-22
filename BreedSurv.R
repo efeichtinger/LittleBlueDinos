@@ -3,8 +3,8 @@
 ##USE THIS ERIN ANY TIME AFTER FEBRUARY 21
 ###Refer to SurvJan.R and BreedersCoxPH.R for code help
 ## These data have the start date as the minimum date that a bird is
-# known to have laid or sired an egg, could change to the date they were
-# first classified as a breeder socially
+# known to have laid or sired an egg, this is when a bird is considered to be
+# a breeder
 
 #use this on laptop
 setwd("C:/Users/Erin/Dropbox/Jay_data_nogithub")
@@ -59,6 +59,12 @@ jay.lifetab <- survfit(jay.ob~1)
 jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
           ylab = "Cumulative Survival", main = "FL Scrub Breeder survival")
 
+#Summary statistics
+mean(jay.df$Yrs)
+sd(jay.df$Yrs)
+median(jay.df$Yrs)
+range(jay.df$Yrs)
+
 #simple plots to look at age and years of breeding experience
 #Mental gymnastics trying to figure out which one should be y
 plot(jay.df$YrsExp, jay.df$CurrentAge, xlab = "Years Experience",
@@ -66,7 +72,38 @@ plot(jay.df$YrsExp, jay.df$CurrentAge, xlab = "Years Experience",
 plot(jay.df$CurrentAge, jay.df$YrsExp, xlab = "Current Age",
      ylab = "Years Experience")
 
-#First Cox Model
+#First Cox Models
+
+#Years of breeder experience as predictor
 cox1 <- coxph(jay.ob ~ YrsExp, data = jay.df)
+#Sex as predictor
 cox2 <- coxph(jay.ob ~ Sex, data = jay.df)
+#Age as predictor
 cox3 <- coxph(jay.ob ~ CurrentAge, data = jay.df)
+
+#Include years experience, age, and sex, no interactions
+cox4 <- coxph(jay.ob ~ YrsExp + Sex + CurrentAge, data = jay.df)
+
+#AFT model with exponential distribution and years of experience 
+AFT.exp1 <- survreg(jay.ob ~ YrsExp, data = jay.df, dist = "exponential")
+#AFT model with Weibull distribution and years of experience
+AFT.weibull <- survreg(jay.ob ~ YrsExp, data = jay.df, dist = "weibull")
+
+#AFT model with exponential distribution and sex
+AFT.exp2 <- survreg(jay.ob ~ Sex, data = jay.df, dist = "exponential")
+#AFT model with Weibull distribution and sex
+AFT.weibull2 <- survreg(jay.ob ~ Sex, data = jay.df, dist = "weibull")
+
+#AFT model with exponential distribution and sex
+AFT.exp3 <- survreg(jay.ob ~ CurrentAge, data = jay.df, dist = "exponential")
+#AFT model with Weibull distribution and sex
+AFT.weibull3 <- survreg(jay.ob ~ CurrentAge, data = jay.df, dist = "weibull")
+
+#All 3 covariates 
+AFT.weibull4 <- survreg(jay.ob ~ YrsExp + Sex + CurrentAge, data = jay.df,
+                        dist = "weibull")
+
+#Compare AFT model (weibull) with Cox PH model that has 3 covariates 
+summary(cox4)
+summary(AFT.weibull4)
+
