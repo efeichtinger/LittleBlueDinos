@@ -17,15 +17,16 @@ library(kinship2)
 library(SurvRegCensCov)
 
 ##Read in CSV file of male and female breeders with mulitple rows for each bird
-bird.df <- read.csv("Erin_Breeders_All_Years.csv")
+bird.df <- read.csv("Breeders_Fall.csv")
 str(bird.df)
 
 #remove duplicates  - for years where there was more than one nest in a year
 jay.df<- bird.df[!duplicated(bird.df),]
 str(jay.df)
 
-colnames(jay.df)[1] <- "ID"
-colnames(jay.df)[2] <- "Band"
+#colnames(jay.df)[1] <- "ID"
+#colnames(jay.df)[2] <- "Band"
+colnames(jay.df)[5] <- "MinDate"
 
 #convert dates to date format
 jay.df$MinDate <- as.Date(jay.df$MinDate, format = "%m/%d/%Y")
@@ -40,8 +41,8 @@ jay.df["Yrs"] <- date.diff/365.25
 #very important piece of code for the model to work properly, remove any 
 #weird entries like birds that have negative years of experience or a negative
 #survival interval 
-jay.df <- subset(jay.df, jay.df$YrsExp >= 0 & jay.df$Yrs > 0)
-str(jay.df)
+jay.df <- subset(jay.df, jay.df$Days > 0)
+
 
 #add column for censorship status, in survival package - 0=alive, 1=dead
 jay.df["censorship"] <- 1
@@ -106,8 +107,8 @@ plot(jay.df$CurrentAge, jay.df$YrsExp, xlab = "Current Age",
 
 #First Cox Models
 
-#Years of breeder experience as predictor
-cox1 <- coxph(jay.ob ~ YrsExp, data = jay.df)
+#Age at first breeding 
+cox1 <- coxph(jay.ob ~ AgeFirstBreed, data = jay.df)
 summary(cox1)
 #Check for violation of proportional hazard 
 res.cox1 <- cox.zph(cox1)
@@ -115,34 +116,33 @@ res.cox1
 
 #Sex as predictor
 cox2 <- coxph(jay.ob ~ Sex, data = jay.df)
-#Age as predictor
-cox3 <- coxph(jay.ob ~ CurrentAge, data = jay.df)
-
+summary(cox2)
+#First year of breeding as predictor
+cox3 <- coxph(jay.ob ~ FirstYr, data = jay.df)
+summary(cox3)
 
 #Include years experience, age, and sex, no interactions
-cox4 <- coxph(jay.ob ~ YrsExp + Sex + CurrentAge, data = jay.df)
+cox4 <- coxph(jay.ob ~ AgeFirstBreed + Sex + FirstYr, data = jay.df)
+summary(cox4)
 res.cox4 <- cox.zph(cox4, transform = "km")
 res.cox4
 plot(res.cox4)
 
-#AFT model with exponential distribution and years of experience 
-AFT.exp1 <- survreg(jay.ob ~ YrsExp, data = jay.df, dist = "exponential")
 #AFT model with Weibull distribution and years of experience
-AFT.weibull <- survreg(jay.ob ~ YrsExp, data = jay.df, dist = "weibull")
+AFT.weibull <- survreg(jay.ob ~ AgeFirstBreed, data = jay.df, dist = "weibull")
+summary(AFT.weibull)
 
-#AFT model with exponential distribution and sex
-AFT.exp2 <- survreg(jay.ob ~ Sex, data = jay.df, dist = "exponential")
 #AFT model with Weibull distribution and sex
 AFT.weibull2 <- survreg(jay.ob ~ Sex, data = jay.df, dist = "weibull")
+summary(AFT.weibull2)
 
-#AFT model with exponential distribution and sex
-AFT.exp3 <- survreg(jay.ob ~ CurrentAge, data = jay.df, dist = "exponential")
 #AFT model with Weibull distribution and sex
-AFT.weibull3 <- survreg(jay.ob ~ CurrentAge, data = jay.df, dist = "weibull")
+AFT.weibull3 <- survreg(jay.ob ~ FirstYr, data = jay.df, dist = "weibull")
+summary(AFT.weibull3)
 
 #All 3 covariates 
-AFT.weibull4 <- survreg(jay.ob ~ YrsExp + Sex + CurrentAge, data = jay.df,
-                        dist = "weibull")
+AFT.weibull4 <- survreg(jay.ob ~ AgeFirstBreed + Sex + FirstYr, 
+      data = jay.df, dist = "weibull")
 
 #Compare AFT model (weibull) with Cox PH model that has 3 covariates 
 summary(cox4)
@@ -150,8 +150,4 @@ summary(AFT.weibull4)
 
 #Analysis of deviance
 anova(cox4)
-
-##From package SurvRegCensCov
-mod1 <- WeibullReg(jay.ob ~ jay.df$YrsExp + jay.df$Sex, data=jay.df)
-mod2 <- WeibullReg(jay.ob ~ jay.df$YrsExp + jay.df$Sex + jay.df$CurrentAge, data=jay.df)
 
