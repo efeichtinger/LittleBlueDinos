@@ -65,6 +65,7 @@ km.sex <- survfit(jay.ob ~ jay.df$Sex, conf.type = "log-log")
 km.fit <- plot(km.sex, xlab = "Time (years)", 
                ylab = "Survival", main = "Survival by Sex")
 
+
 #Summary statistics
 mean(jay.df$Yrs)
 sd(jay.df$Yrs)
@@ -113,6 +114,7 @@ summary(cox1)
 #Check for violation of proportional hazard 
 res.cox1 <- cox.zph(cox1)
 res.cox1
+plot(res.cox1)
 
 #Sex as predictor
 cox2 <- coxph(jay.ob ~ Sex, data = jay.df)
