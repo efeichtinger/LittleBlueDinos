@@ -56,15 +56,39 @@ jay.df$Yrs <- as.numeric(jay.df$Yrs)
 
 #Create survival object - IS THIS CORRECT?? 
 jay.ob <- Surv(jay.df$Yrs, jay.df$censorship, type =c('right'))
-jay.lifetab <- survfit(jay.ob~1)
+jay.lifetab <- survfit(jay.ob~1, conf.type = "log-log")
 jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
           ylab = "Cumulative Survival", main = "FL Scrub Breeder survival")
+#Grouping by sex - following example "Cox Regression in R" J. Fox
+km.sex <- survfit(jay.ob ~ jay.df$Sex, conf.type = "log-log")
+km.fit <- plot(km.sex, xlab = "Time (years)", 
+               ylab = "Survival", main = "Survival by Sex")
 
 #Summary statistics
 mean(jay.df$Yrs)
 sd(jay.df$Yrs)
 median(jay.df$Yrs)
 range(jay.df$Yrs)
+
+males <- subset(jay.df, jay.df$Sex == "M")
+females <- subset(jay.df, jay.df$Sex == "F")
+mean(males$Yrs)
+sd(males$Yrs)
+median(males$Yrs)
+range(males$Yrs)
+
+mean(females$Yrs)
+sd(females$Yrs)
+median(females$Yrs)
+range(females$Yrs)
+
+#table of means & SD for males and females 
+means <- cbind(mean(females$Yrs), mean(males$Yrs))
+sd <- cbind(sd(females$Yrs), sd(males$Yrs))
+colnames(means) <- c("Females", "Males")
+m.sd <- rbind(means, sd)
+rownames(m.sd) <- c("Mean", "SD")
+m.sd
 
 #simple plots to look at age and years of breeding experience
 #Mental gymnastics trying to figure out which one should be y
@@ -77,13 +101,22 @@ plot(jay.df$CurrentAge, jay.df$YrsExp, xlab = "Current Age",
 
 #Years of breeder experience as predictor
 cox1 <- coxph(jay.ob ~ YrsExp, data = jay.df)
+summary(cox1)
+#Check for violation of proportional hazard 
+res.cox1 <- cox.zph(cox1)
+res.cox1
+
 #Sex as predictor
 cox2 <- coxph(jay.ob ~ Sex, data = jay.df)
 #Age as predictor
 cox3 <- coxph(jay.ob ~ CurrentAge, data = jay.df)
 
+
 #Include years experience, age, and sex, no interactions
 cox4 <- coxph(jay.ob ~ YrsExp + Sex + CurrentAge, data = jay.df)
+res.cox4 <- cox.zph(cox4, transform = "km")
+res.cox4
+plot(res.cox4)
 
 #AFT model with exponential distribution and years of experience 
 AFT.exp1 <- survreg(jay.ob ~ YrsExp, data = jay.df, dist = "exponential")
