@@ -72,23 +72,30 @@ range(jay.df$Yrs)
 
 males <- subset(jay.df, jay.df$Sex == "M")
 females <- subset(jay.df, jay.df$Sex == "F")
-mean(males$Yrs)
-sd(males$Yrs)
-median(males$Yrs)
-range(males$Yrs)
 
-mean(females$Yrs)
-sd(females$Yrs)
-median(females$Yrs)
-range(females$Yrs)
+#Table of means & SD of males and females for age at first breeding
+ma <- cbind(mean(na.omit(females$AgeFirstBreed)), mean(na.omit(males$AgeFirstBreed)))
+sa <- cbind(sd(na.omit(females$AgeFirstBreed)), sd(na.omit(males$AgeFirstBreed)))
+age.table <- rbind(ma,sa)
+colnames(age.table) <- c("Females", "Males")
+rownames(age.table) <- c("Mean", "SD")
+age.table
 
-#table of means & SD for males and females 
+#table of means & SD for males and females of years survived once becoming a breeder
 means <- cbind(mean(females$Yrs), mean(males$Yrs))
 sd <- cbind(sd(females$Yrs), sd(males$Yrs))
 colnames(means) <- c("Females", "Males")
 m.sd <- rbind(means, sd)
 rownames(m.sd) <- c("Mean", "SD")
 m.sd
+
+#What does the range of ages at first breeding look like?
+jay <- na.omit(jay.df$AgeFirstBreed)
+
+range(jay)
+mean(jay)
+sd(jay)
+median(jay)
 
 #simple plots to look at age and years of breeding experience
 #Mental gymnastics trying to figure out which one should be y
@@ -141,6 +148,10 @@ AFT.weibull4 <- survreg(jay.ob ~ YrsExp + Sex + CurrentAge, data = jay.df,
 summary(cox4)
 summary(AFT.weibull4)
 
+#Analysis of deviance
+anova(cox4)
+
 ##From package SurvRegCensCov
 mod1 <- WeibullReg(jay.ob ~ jay.df$YrsExp + jay.df$Sex, data=jay.df)
 mod2 <- WeibullReg(jay.ob ~ jay.df$YrsExp + jay.df$Sex + jay.df$CurrentAge, data=jay.df)
+
