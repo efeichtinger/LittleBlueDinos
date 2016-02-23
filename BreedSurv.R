@@ -14,6 +14,7 @@ setwd("C:/Users/efeichtinger/Dropbox/Jay_data_nogithub")
 library(survival)
 library(car)
 library(kinship2)
+library(SurvRegCensCov)
 
 ##Read in CSV file of male and female breeders with mulitple rows for each bird
 bird.df <- read.csv("Erin_Breeders_All_Years.csv")
@@ -107,3 +108,6 @@ AFT.weibull4 <- survreg(jay.ob ~ YrsExp + Sex + CurrentAge, data = jay.df,
 summary(cox4)
 summary(AFT.weibull4)
 
+##From package SurvRegCensCov
+mod1 <- WeibullReg(jay.ob ~ jay.df$YrsExp + jay.df$Sex, data=jay.df)
+mod2 <- WeibullReg(jay.ob ~ jay.df$YrsExp + jay.df$Sex + jay.df$CurrentAge, data=jay.df)
