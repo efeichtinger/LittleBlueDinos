@@ -114,10 +114,11 @@ median(jay)
 
 #simple plots to look at age and years of breeding experience
 #Mental gymnastics trying to figure out which one should be y
-plot(jay.df$YrsExp, jay.df$CurrentAge, xlab = "Years Experience",
-     ylab = "Current Age")
-plot(jay.df$CurrentAge, jay.df$YrsExp, xlab = "Current Age",
-     ylab = "Years Experience")
+#Can't do these plots on data frame with one record per individual 
+#plot(jay.df$YrsExp, jay.df$CurrentAge, xlab = "Years Experience",
+     #ylab = "Current Age")
+#plot(jay.df$CurrentAge, jay.df$YrsExp, xlab = "Current Age",
+     #ylab = "Years Experience")
 
 #First Cox Models
 
@@ -128,14 +129,20 @@ summary(cox1)
 res.cox1 <- cox.zph(cox1)
 res.cox1
 plot(res.cox1)
+#They are proportional? "A non-zero slope is evidence against proportionality"
 
 #Sex as predictor
 cox2 <- coxph(jay.ob ~ Sex, data = jay.df)
 summary(cox2)
+res.cox2 <- cox.zph(cox2)
+res.cox2
+plot(res.cox2)
 #First year of breeding as predictor
 cox3 <- coxph(jay.ob ~ FirstYr, data = jay.df)
 summary(cox3)
-
+res.cox3 <- cox.zph(cox3)
+res.cox3
+plot(res.cox3)
 #Include years experience, age, and sex, no interactions
 cox4 <- coxph(jay.ob ~ AgeFirstBreed + Sex + FirstYr, data = jay.df)
 summary(cox4)
