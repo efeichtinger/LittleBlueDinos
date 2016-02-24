@@ -36,7 +36,9 @@ jay.df$LastObsDate <- as.Date(jay.df$LastObsDate, format = "%m/%d/%Y")
 date.diff<- jay.df$LastObsDate-jay.df$MinDate
 
 #and survival period in years, account for leap year 
-jay.df["Yrs"] <- date.diff/365.25
+jay.df["Yrs"] <- as.numeric(date.diff/365.25)
+
+jay.df$FirstYr <- as.factor(jay.df$FirstYr)
 
 #very important piece of code for the model to work properly, remove any 
 #weird entries like birds that have negative years of experience or a negative
@@ -49,21 +51,32 @@ jay.df["censorship"] <- 1
 #If last observed date = 10/14/2015, 0 for still alive today
 jay.df$censorship[which(jay.df$LastObsDate=="2015-10-14")]<-0
 
+#Check for correct structure
+str(jay.df)
+
+#How many males and females?
+sum(jay.df$Sex == "M")
+sum(jay.df$Sex == "F")
 
 #change back to numeric for survival object 
 jay.df$MinDate <- as.numeric(jay.df$MinDate)
 jay.df$LastObsDate <- as.numeric(jay.df$LastObsDate)
-jay.df$Yrs <- as.numeric(jay.df$Yrs)
 
 #Create survival object - IS THIS CORRECT?? 
 jay.ob <- Surv(jay.df$Yrs, jay.df$censorship, type =c('right'))
 jay.lifetab <- survfit(jay.ob~1, conf.type = "log-log")
 jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
           ylab = "Cumulative Survival", main = "FL Scrub Breeder survival")
+jay.fitlog <- plot(jay.lifetab, xlab = "Time (years)",
+        log = "xy", ylab = "Ln(Cumulative Survival)", 
+            main = "FL Scrub Breeder survival")
+
 #Grouping by sex - following example "Cox Regression in R" J. Fox
 km.sex <- survfit(jay.ob ~ jay.df$Sex, conf.type = "log-log")
-km.fit <- plot(km.sex, xlab = "Time (years)", 
+km.fit <- plot(km.sex, col=c("navy","red"), xlab = "Time (years)", 
                ylab = "Survival", main = "Survival by Sex")
+legend("topright", c("Females","Males"), col = c("navy","red"), 
+       lty = 1, lwd = 1)
 
 
 #Summary statistics
