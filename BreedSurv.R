@@ -7,7 +7,7 @@
 # a breeder
 
 #use this on laptop
-setwd("C:/Users/Erin/Dropbox/Jay_data_nogithub")
+setwd("C:/Users/Erin/LittleBlueDinos")
 #use this on school desktop
 setwd("C:/Users/efeichtinger/Dropbox/Jay_data_nogithub")
 
@@ -68,16 +68,21 @@ jay.lifetab <- survfit(jay.ob~1, conf.type = "log-log")
 jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
           ylab = "Cumulative Survival", main = "FL Scrub Breeder survival",
           pin = c(5,5))
+#Log scale
 jay.fitlog <- plot(jay.lifetab, xlab = "Time (years)",
-        log = "xy", ylab = "Ln(Cumulative Survival)", 
-            main = "FL Scrub Breeder survival")
-
+                   log = "y", ylim = c(0.001,2), ylab = "Cumulative Survival", 
+                   main = "FL Scrub Breeder survival Log Scale")
 #Grouping by sex - following example "Cox Regression in R" J. Fox
 km.sex <- survfit(jay.ob ~ jay.df$Sex, conf.type = "log-log")
 km.fit <- plot(km.sex, col=c("dodgerblue2","red"),lty = c(1,2), lwd = 2, xlab = "Time (years)", 
                ylab = "Survival", main = "Survival by Sex", pin = c(20,20))
 legend("topright", c("Females","Males"), col = c("dodgerblue2","red"),
        lty = c(1,2), lwd = 2)
+sex.log <- plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
+          lty  = c(1,2), xlab = "Time (years)",ylab = "Cumulative Survival", 
+                main = "Survival by Sex Log Scale")
+legend("topright", c("Females","Males"), col = c("navy","red"), 
+       lty = c(1,2), lwd =1)
 
 
 #Summary statistics
@@ -254,12 +259,22 @@ all.fit <- plot(jay.lifetab, xlab = "Time (years)",
 ylab = "Cumulative Survival", main = "All known-age birds",
 pin = c(5,5))
 
+all.log <- plot(jay.lifetab, log = "y", ylim=c(0.001,2),
+     xlab =  "Time (years)", ylab = "Cumulative Survival", 
+      main = "Survival of Known Age Birds - Log Scale")
+        
+
 all.sex <- survfit(survobj~birds2$Sex, conf.type = "log-log")
 sex.kmall <- plot(all.sex, col = c("blue", "red"),
-                xlab = "Time (years)", ylab = "Survival", main = "Survival by Sex")
+    xlab = "Time (years)", ylab = "Survival", main = "Survival by Sex")
 legend("topright", c("Females","Males"), col = c("blue","red"),
        lty = c(1,2), lwd = 2)
 
+all.logsex <- plot(all.sex, col = c("blue", "red"), log = "y", 
+            ylim = c(0.001,2), xlab = "Time (years)",
+    ylab = "Cumulative Survival", main = "Survival by Sex - Log Scale")
+legend("topright", c("Females","Males"), col = c("blue","red"),
+       lty = c(1,2), lwd = 2)
 
 #Doesn't work right - warning message: X matrix deemed to be singular
 cox <- coxph(survobj ~ birds2$Sex, data = birds2)
