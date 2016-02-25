@@ -283,6 +283,8 @@ legend("topright", c("Females","Males"), col = c("blue","red"),
 #Doesn't work right - warning message: X matrix deemed to be singular
 cox <- coxph(survobj ~ birds2$Sex, data = birds2)
 cox1 <- coxph(survobj ~ birds2$FYear, data = birds2)
+summary(cox)
+
 
 #AFT model for sex
 AFT.sex <- survreg(survobj ~ Sex, data = birds2, dist = "weibull")
