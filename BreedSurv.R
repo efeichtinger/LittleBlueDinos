@@ -78,6 +78,7 @@ km.fit <- plot(km.sex, col=c("dodgerblue2","red"),lty = c(1,2), lwd = 2, xlab = 
                ylab = "Survival", main = "Survival by Sex", pin = c(20,20))
 legend("topright", c("Females","Males"), col = c("dodgerblue2","red"),
        lty = c(1,2), lwd = 2)
+#Log scale
 sex.log <- plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
           lty  = c(1,2), xlab = "Time (years)",ylab = "Cumulative Survival", 
                 main = "Survival by Sex Log Scale")
@@ -213,7 +214,7 @@ birds <- read.csv("Erin_Surv_All.csv")
 
 #remove duplicates 
 birds2 <- birds[!duplicated(birds),]
-#str(birds2)
+str(birds2)
 
 colnames(birds2)[7] <- "LastObsDate"
 
@@ -248,18 +249,21 @@ birds2$days <- as.numeric(birds2$days)
 birds2$yrs <- as.numeric(birds2$yrs)
 birds2$FYear <- as.factor(birds2$FYear)
 
-birds2 <- birds2[-which(birds2$Sex == ""),]
+#How many males and females?
+sum(birds2$Sex == "M")
+sum(birds2$Sex == "F")
 
 
 #Create survival object based off Gordon's Cactus Finch example
 survobj <- Surv(birds2$yrs, birds2$censorship, type =c('right'))
 
 all.lifetab <- survfit(survobj~1)
-all.fit <- plot(jay.lifetab, xlab = "Time (years)", 
+all.fit <- plot(all.lifetab, xlab = "Time (years)", 
 ylab = "Cumulative Survival", main = "All known-age birds",
 pin = c(5,5))
 
-all.log <- plot(jay.lifetab, log = "y", ylim=c(0.001,2),
+#Log scale
+all.log <- plot(all.lifetab, log = "y", ylim=c(0.001,2),
      xlab =  "Time (years)", ylab = "Cumulative Survival", 
       main = "Survival of Known Age Birds - Log Scale")
         
