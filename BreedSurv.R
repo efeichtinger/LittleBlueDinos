@@ -66,17 +66,18 @@ jay.df$LastObsDate <- as.numeric(jay.df$LastObsDate)
 jay.ob <- Surv(jay.df$Yrs, jay.df$censorship, type =c('right'))
 jay.lifetab <- survfit(jay.ob~1, conf.type = "log-log")
 jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
-          ylab = "Cumulative Survival", main = "FL Scrub Breeder survival")
+          ylab = "Cumulative Survival", main = "FL Scrub Breeder survival",
+          pin = c(5,5))
 jay.fitlog <- plot(jay.lifetab, xlab = "Time (years)",
         log = "xy", ylab = "Ln(Cumulative Survival)", 
             main = "FL Scrub Breeder survival")
 
 #Grouping by sex - following example "Cox Regression in R" J. Fox
 km.sex <- survfit(jay.ob ~ jay.df$Sex, conf.type = "log-log")
-km.fit <- plot(km.sex, col=c("navy","red"), xlab = "Time (years)", 
-               ylab = "Survival", main = "Survival by Sex")
-legend("topright", c("Females","Males"), col = c("navy","red"), 
-       lty = 1, lwd = 1)
+km.fit <- plot(km.sex, col=c("dodgerblue2","red"),lty = c(1,2), lwd = 2, xlab = "Time (years)", 
+               ylab = "Survival", main = "Survival by Sex", pin = c(20,20))
+legend("topright", c("Females","Males"), col = c("dodgerblue2","red"),
+       lty = c(1,2), lwd = 2)
 
 
 #Summary statistics
@@ -120,6 +121,13 @@ median(jay)
 #plot(jay.df$CurrentAge, jay.df$YrsExp, xlab = "Current Age",
      #ylab = "Years Experience")
 
+#Look at distribution of age of first time breeders 
+#Bar plot? Bubble plot? 
+#ggplot2
+
+
+
+
 #First Cox Models
 
 #Age at first breeding 
@@ -143,12 +151,27 @@ summary(cox3)
 res.cox3 <- cox.zph(cox3)
 res.cox3
 plot(res.cox3)
-#Include years experience, age, and sex, no interactions
-cox4 <- coxph(jay.ob ~ AgeFirstBreed + Sex + FirstYr, data = jay.df)
+
+#Age and sex
+cox4 <- coxph(jay.ob ~ AgeFirstBreed + Sex, data = jay.df)
 summary(cox4)
-res.cox4 <- cox.zph(cox4, transform = "km")
-res.cox4
-plot(res.cox4)
+
+#Hazard ratio - B1 + B2
+hr.4 <- cox4$coefficients[1] + cox4$coefficients[2]
+hr.4
+
+#Include years experience, age, and sex, no interactions
+cox5 <- coxph(jay.ob ~ AgeFirstBreed + Sex + FirstYr, data = jay.df)
+summary(cox5)
+res.cox5 <- cox.zph(cox5, transform = "km")
+res.cox5
+plot(res.cox45)
+
+cox6 <- coxph(jay.ob ~ Sex + FirstYr, data = jay.df)
+summary(cox6)
+
+cox7 <- coxph(jay.ob ~ AgeFirstBreed + FirstYr, data = jay.df)
+summary(cox7)
 
 #AFT model with Weibull distribution and years of experience
 AFT.weibull <- survreg(jay.ob ~ AgeFirstBreed, data = jay.df, dist = "weibull")
@@ -173,3 +196,75 @@ summary(AFT.weibull4)
 #Analysis of deviance
 anova(cox4)
 
+
+###################################################################
+#Just for fun, let's look at survival of all known age birds in the population
+
+#Known age birds
+
+#read in CSV of all known-age birds 
+birds <- read.csv("Erin_Surv_All.csv")
+#str(birds)
+
+#remove duplicates 
+birds2 <- birds[!duplicated(birds),]
+#str(birds2)
+
+colnames(birds2)[7] <- "LastObsDate"
+
+#convert dates to date format
+birds2$FldgDate <- as.Date(birds2$FldgDate, format = "%m/%d/%Y")
+birds2$LastObsDate <- as.Date(birds2$LastObsDate, format = "%m/%d/%Y")
+
+#subtract dates to get number of days
+date.diff<- birds2$LastObsDate-birds2$FldgDate
+
+#add to data frame - survival period in days
+birds2["days"] <- date.diff
+birds2$days <-as.numeric(birds2$days)
+#and survival period in years 
+birds2["yrs"] <- birds2$days/365.25
+
+#very important piece of code for the model to work properly
+#remove any zero or negative values in days and years 
+birds2 <- subset(birds2, birds2$days > 0 & birds2$yrs > 0)
+
+#add column for censorship status 
+birds2["censorship"] <- 1
+#If last observed date = 10/14/2015, 0 for still alive today
+birds2$censorship[which(birds2$LastObsDate=="2015-10-14")]<-0
+
+year <- as.POSIXlt(birds2$FldgDate)$year+1900
+birds2["FYear"] <- year
+#change back to numeric for survival object 
+birds2$FldgDate <- as.numeric(birds2$FldgDate)
+birds2$LastObsDate <- as.numeric(birds2$LastObsDate)
+birds2$days <- as.numeric(birds2$days)
+birds2$yrs <- as.numeric(birds2$yrs)
+birds2$FYear <- as.factor(birds2$FYear)
+
+birds2 <- birds2[-which(birds2$Sex == ""),]
+
+
+#Create survival object based off Gordon's Cactus Finch example
+survobj <- Surv(birds2$yrs, birds2$censorship, type =c('right'))
+
+all.lifetab <- survfit(survobj~1)
+all.fit <- plot(jay.lifetab, xlab = "Time (years)", 
+ylab = "Cumulative Survival", main = "All known-age birds",
+pin = c(5,5))
+
+all.sex <- survfit(survobj~birds2$Sex, conf.type = "log-log")
+sex.kmall <- plot(all.sex, col = c("blue", "red"),
+                xlab = "Time (years)", ylab = "Survival", main = "Survival by Sex")
+legend("topright", c("Females","Males"), col = c("blue","red"),
+       lty = c(1,2), lwd = 2)
+
+
+#Doesn't work right - warning message: X matrix deemed to be singular
+cox <- coxph(survobj ~ birds2$Sex, data = birds2)
+cox1 <- coxph(survobj ~ birds2$FYear, data = birds2)
+
+#AFT model for sex
+AFT.sex <- survreg(survobj ~ Sex, data = birds2, dist = "weibull")
+summary(AFT.sex)
