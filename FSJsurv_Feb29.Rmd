@@ -10,6 +10,7 @@ Alright so I figured out how the data need to be set up for the model to work co
 ###Subset 1: All known age birds from 1981 to 2015
 The first subset of data consists of all known age birds who fledged between 1981 and 2015. The data frame includes jay ID (both band number and color), date fledged, date last seen, sex and a few other fields. There are 1076 females and 1013 males for a total sample size of 2089. 
 ```{r, echo=FALSE}
+setwd("C:/Users/Erin/LittleBlueDinos")
 library(survival)
 library(car)
 library(kinship2)
@@ -179,12 +180,12 @@ legend("topright", c("Females","Males"), col = c("navy","red"),
        lty = c(1,2), lwd =1)
 
 ```
-First, the Cox Proportional Hazard model
+###Cox Proportional Hazard models
 
 ```{r}
 #Age at first breeding 
 cox.age <- coxph(jay.ob ~ AgeFirstBreed, data = jay.df)
-summary(cox1)
+summary(cox.age)
 ```
 
 From the output we can see that the estimated coefficient for age at first time breeding has a significant z statistic. The sign is positive so increasing age at first breeding increases hazard. However, look at the R^2. It is 0.007, so that suggests not much is explained by age at first breeding. 
@@ -197,6 +198,68 @@ summary(cox.sage)
 ```
 
 Age at first breeding has a significant z score but sex does not. R^2 = 0.008. 
+
+One more to try is year of first breeding. 
+```{r}
+cox3 <- coxph(jay.ob ~ FirstYr, data = jay.df)
+
+```
+
+I'm not showing the output because it's long. I coded year as a factor so there are 34 levels, one for each year. The coefficients for most years are not significant. Is it correct to code the first year as a factor and to have as many levels as years and an estimate for each? 2011 - 2015 have significant z stats with a positive estimate for those coefficients, meaning an increased hazard. R^2 = 0.24, but I'm not sure that this is correct. 
+
+```{r}
+#All 3 covariates - age at first breeding, sex, and year of first breeding
+#No interactions
+cox4 <- coxph(jay.ob ~ AgeFirstBreed + Sex + FirstYr, data = jay.df)
+summary(cox4)
+```
+Consistent with the models of each covariate alone, age is significant and so are some levels of year. R^2 = 0.23, which is about the same as the model with first year alone. 
+
+Just to be thorough, let's look at age and first year as covariates.
+```{r}
+cox5 <- coxph(jay.ob ~ AgeFirstBreed + FirstYr, data = jay.df)
+summary(cox5)
+```
+Same as before with regards to the coefficients and R^2 is very similar. 
+
+```{r}
+extractAIC(cox.age)
+extractAIC(cox.sage)
+extractAIC(cox3)
+extractAIC(cox4)
+extractAIC(cox5)
+```
+Models 4 and 5 have the lowest AIC scores of this group of models. The AIC scores are identical. Model 4 is age at first breeding, sex and year at first breeding. Model 5 is age and year. 
+
+###Accelerated Life Models
+```{r}
+#AFT model with Weibull distribution and age at first breeding 
+AFT.weibull <- survreg(jay.ob ~ AgeFirstBreed, data = jay.df, dist = "weibull")
+summary(AFT.weibull)
+
+#AFT model with Weibull distribution and sex
+AFT.weibull2 <- survreg(jay.ob ~ Sex, data = jay.df, dist = "weibull")
+summary(AFT.weibull2)
+
+#AFT model with Weibull distribution and year of first breeding
+AFT.weibull3 <- survreg(jay.ob ~ FirstYr, data = jay.df, dist = "weibull")
+summary(AFT.weibull3)
+
+#All 3 covariates 
+AFT.weibull4 <- survreg(jay.ob ~ AgeFirstBreed + Sex + FirstYr, 
+      data = jay.df, dist = "weibull")
+summary(AFT.weibull4)
+```
+I don't know how to interpret the output for the AFT models and how to tell if they are "good" descriptions of the data. 
+
+```{r}
+extractAIC(AFT.weibull)
+extractAIC(AFT.weibull2)
+extractAIC(AFT.weibull3)
+extractAIC(AFT.weibull4)
+```
+
+Model 4 is the most supported according to the AIC scores of the set of models compared. This model has age, year and sex as covariates. 
 
 ###The next steps
 1. Get group size in April for all birds and breeders from the database. I found an existing query that gives the group size in April of each year by territory. I have to figure out how to connect the field of group size to each individual bird. 
