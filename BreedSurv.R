@@ -248,8 +248,10 @@ birds2$days <- as.numeric(birds2$days)
 birds2$yrs <- as.numeric(birds2$yrs)
 birds2$FYear <- as.factor(birds2$FYear)
 
-birds2 <- birds2[-which(birds2$Sex == ""),]
-
+#birds2 <- birds2[-which(birds2$Sex == ""),]
+#How many males and females?
+sum(birds2$Sex == "M")
+sum(birds2$Sex == "F")
 
 #Create survival object based off Gordon's Cactus Finch example
 survobj <- Surv(birds2$yrs, birds2$censorship, type =c('right'))
@@ -259,7 +261,7 @@ all.fit <- plot(jay.lifetab, xlab = "Time (years)",
 ylab = "Cumulative Survival", main = "All known-age birds",
 pin = c(5,5))
 
-all.log <- plot(jay.lifetab, log = "y", ylim=c(0.001,2),
+all.log <- plot(all.lifetab, log = "y", ylim=c(0.001,2),
      xlab =  "Time (years)", ylab = "Cumulative Survival", 
       main = "Survival of Known Age Birds - Log Scale")
         
