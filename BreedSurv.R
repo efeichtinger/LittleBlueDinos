@@ -178,7 +178,7 @@ summary(cox6)
 cox7 <- coxph(jay.ob ~ AgeFirstBreed + FirstYr, data = jay.df)
 summary(cox7)
 
-#AFT model with Weibull distribution and years of experience
+#AFT model with Weibull distribution and age at first breeding 
 AFT.weibull <- survreg(jay.ob ~ AgeFirstBreed, data = jay.df, dist = "weibull")
 summary(AFT.weibull)
 
@@ -186,7 +186,7 @@ summary(AFT.weibull)
 AFT.weibull2 <- survreg(jay.ob ~ Sex, data = jay.df, dist = "weibull")
 summary(AFT.weibull2)
 
-#AFT model with Weibull distribution and sex
+#AFT model with Weibull distribution and first year of breeding
 AFT.weibull3 <- survreg(jay.ob ~ FirstYr, data = jay.df, dist = "weibull")
 summary(AFT.weibull3)
 
