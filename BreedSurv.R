@@ -1,5 +1,5 @@
 ##February 21 2016
-##Script for survival models - breeders for now
+##Script for survival models - breeders and all known age birds for now
 ##USE THIS ERIN ANY TIME AFTER FEBRUARY 21
 ###Refer to SurvJan.R and BreedersCoxPH.R for code help
 ## These data have the start date as the minimum date that a bird is
@@ -179,7 +179,7 @@ summary(cox6)
 cox7 <- coxph(jay.ob ~ AgeFirstBreed + FirstYr, data = jay.df)
 summary(cox7)
 
-#AFT model with Weibull distribution and years of experience
+#AFT model with Weibull distribution and age at first breeding 
 AFT.weibull <- survreg(jay.ob ~ AgeFirstBreed, data = jay.df, dist = "weibull")
 summary(AFT.weibull)
 
@@ -187,7 +187,7 @@ summary(AFT.weibull)
 AFT.weibull2 <- survreg(jay.ob ~ Sex, data = jay.df, dist = "weibull")
 summary(AFT.weibull2)
 
-#AFT model with Weibull distribution and sex
+#AFT model with Weibull distribution and first year of breeding
 AFT.weibull3 <- survreg(jay.ob ~ FirstYr, data = jay.df, dist = "weibull")
 summary(AFT.weibull3)
 
@@ -249,10 +249,17 @@ birds2$days <- as.numeric(birds2$days)
 birds2$yrs <- as.numeric(birds2$yrs)
 birds2$FYear <- as.factor(birds2$FYear)
 
+<<<<<<< HEAD
 #How many males and females?
 sum(birds2$Sex == "M")
 sum(birds2$Sex == "F")
 
+=======
+#birds2 <- birds2[-which(birds2$Sex == ""),]
+#How many males and females?
+sum(birds2$Sex == "M")
+sum(birds2$Sex == "F")
+>>>>>>> b948091607c458ccab04e5f044dff7732d17c1cc
 
 #Create survival object based off Gordon's Cactus Finch example
 survobj <- Surv(birds2$yrs, birds2$censorship, type =c('right'))
@@ -262,7 +269,10 @@ all.fit <- plot(all.lifetab, xlab = "Time (years)",
 ylab = "Cumulative Survival", main = "All known-age birds",
 pin = c(5,5))
 
+<<<<<<< HEAD
 #Log scale
+=======
+>>>>>>> b948091607c458ccab04e5f044dff7732d17c1cc
 all.log <- plot(all.lifetab, log = "y", ylim=c(0.001,2),
      xlab =  "Time (years)", ylab = "Cumulative Survival", 
       main = "Survival of Known Age Birds - Log Scale")
