@@ -55,12 +55,23 @@ jay.ob <- Surv(jay.df$Yrs, jay.df$censorship, type =c('right'))
 jay.lifetab <- survfit(jay.ob~1, conf.type = "log-log")
 jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
           ylab = "Cumulative Survival", main = "FL Scrub Breeder survival")
+#Log scale
+jay.fitlog <- plot(jay.lifetab, xlab = "Time (years)",
+        log = "y", ylim = c(0.001,2), ylab = "Cumulative Survival", 
+            main = "FL Scrub Breeder survival Log Scale")
 #Grouping by sex - following example "Cox Regression in R" J. Fox
 km.sex <- survfit(jay.ob ~ jay.df$Sex, conf.type = "log-log")
 km.fit <- plot(km.sex, col=c("navy","red"), xlab = "Time (years)", 
                ylab = "Survival", main = "Survival by Sex")
 legend("topright", c("Females","Males"), col = c("navy","red"), 
        lty = 1, lwd = 1)
+
+#Log scale
+sex.log <- plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
+      xlab = "Time (years)",ylab = "Cumulative Survival", 
+      main = "Survival by Sex Log Scale")
+legend("topright", c("Females","Males"), col = c("navy","red"), 
+       lty = 1, lwd =1)
 
 ```
 
@@ -142,7 +153,7 @@ The year and age at the first time breeding for each bird were significant in al
 ###Accerlated Failure Time Models
 AFT models describe the length of time to "failure", or in this case death. Another application of this method, for example, could be for flowering time. Thus, "failure" does not always mean death. In AFT models, the covariates influence how soon failure happens. Postive coefficients mean an increase in failure time, or a longer life, while negative coefficients mean a decrease in failure time, or quicker death/shorter life. Recall what the signs of the coefficients tell us about the influence on risk in the Cox proportional hazard models. The signs are the opposite from AFT models. 
 
-
+We can't directly compare the two types of models.
 
 ```{r}
 
@@ -158,6 +169,8 @@ AFT.yr <- survreg(jay.ob ~ FirstYr, data = jay.df, dist = "weibull")
 #All 3 covariates 
 AFT.3 <- survreg(jay.ob ~ AgeFirstBreed + Sex + FirstYr, 
       data = jay.df, dist = "weibull")
+
+
 
 summary(AFT.age)
 summary(AFT.sex)
