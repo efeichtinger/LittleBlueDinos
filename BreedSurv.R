@@ -16,7 +16,7 @@ library(car)
 library(kinship2)
 library(SurvRegCensCov)
 
-##Read in CSV file of male and female breeders with mulitple rows for each bird
+##Read in CSV file of male and female breeders 
 bird.df <- read.csv("Breeders_Fall.csv")
 str(bird.df)
 
@@ -84,6 +84,7 @@ sex.log <- plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
                 main = "Survival by Sex Log Scale")
 legend("topright", c("Females","Males"), col = c("navy","red"), 
        lty = c(1,2), lwd =1)
+
 
 
 #Summary statistics
@@ -290,10 +291,46 @@ all.logsex <- plot(all.sex, col = c("blue", "red"), log = "y",
 legend("topright", c("Females","Males"), col = c("blue","red"),
        lty = c(1,2), lwd = 2)
 
+##Put the curves for breeders and all birds on the same figure 
+#Now on the same plot
+plot(jay.lifetab, xlab = "Time (years)",
+     log = "y", col = "red", ylim = c(0.001,2), ylab = "Cumulative Survival", 
+     main = "FL Scrub Survival Log Scale")
+lines(all.lifetab, log = "y", lty = 1, col = "dodgerblue")
+legend("topright", c("Breeders","All Birds"), col=c("red", "dodgerblue"), 
+       lty= c(1,1), lwd = 2)
+
+plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
+     lty  = c(1,2), xlab = "Time (years)",ylab = "Cumulative Survival", 
+     main = "Survival by Sex Log Scale")
+lines(all.sex, log = "y", lty = 1, col = c("green","purple"))
+legend("topright", c("Female Breeders","Male Breeders","Female All","Male All"), 
+       col=c("navy", "red", "green", "purple"), 
+       lty= c(1,1,1,1), lwd = 2)
+
 #Doesn't work right - warning message: X matrix deemed to be singular
 cox <- coxph(survobj ~ birds2$Sex, data = birds2)
-cox1 <- coxph(survobj ~ birds2$FYear, data = birds2)
+cox2 <- coxph(survobj ~ birds2$FYear, data = birds2)
 summary(cox)
+summary(cox2)
+
+res1 <- cox.zph(cox)
+res1
+plot(res1)
+#Hmm, with all birds together, the hazards do not seem to be proportional
+
+
+#Test to see if the order of the covariates matter
+cox3 <- coxph(survobj ~ birds2$Sex + birds2$FYear, data = birds2)
+cox4 <- coxph(survobj ~ birds2$FYear + birds2$Sex, data = birds2)
+summary(cox3)
+summary(cox4)
+#The order doesn't appear to matter, the estimates are the same 
+
+extractAIC(cox)
+extractAIC(cox2)
+extractAIC(cox3)
+extractAIC(cox4)
 
 
 #AFT model for sex
