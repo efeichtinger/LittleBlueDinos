@@ -6,10 +6,7 @@
 # known to have laid or sired an egg, this is when a bird is considered to be
 # a breeder
 
-#use this on laptop
-setwd("C:/Users/Erin/LittleBlueDinos")
-#use this on school desktop
-setwd("C:/Users/efeichtinger/Dropbox/Jay_data_nogithub")
+
 
 library(survival)
 library(car)
@@ -171,7 +168,7 @@ cox5 <- coxph(jay.ob ~ AgeFirstBreed + Sex + FirstYr, data = jay.df)
 summary(cox5)
 res.cox5 <- cox.zph(cox5, transform = "km")
 res.cox5
-plot(res.cox45)
+plot(res.cox5)
 
 cox6 <- coxph(jay.ob ~ Sex + FirstYr, data = jay.df)
 summary(cox6)
