@@ -1,5 +1,5 @@
 ##February 21 2016
-##Script for survival models - breeders for now
+##Script for survival models - breeders and all known age birds for now
 ##USE THIS ERIN ANY TIME AFTER FEBRUARY 21
 ###Refer to SurvJan.R and BreedersCoxPH.R for code help
 ## These data have the start date as the minimum date that a bird is
@@ -13,7 +13,7 @@ library(car)
 library(kinship2)
 library(SurvRegCensCov)
 
-##Read in CSV file of male and female breeders with mulitple rows for each bird
+##Read in CSV file of male and female breeders 
 bird.df <- read.csv("Breeders_Fall.csv")
 str(bird.df)
 
@@ -75,11 +75,13 @@ km.fit <- plot(km.sex, col=c("dodgerblue2","red"),lty = c(1,2), lwd = 2, xlab = 
                ylab = "Survival", main = "Survival by Sex", pin = c(20,20))
 legend("topright", c("Females","Males"), col = c("dodgerblue2","red"),
        lty = c(1,2), lwd = 2)
+#Log scale
 sex.log <- plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
           lty  = c(1,2), xlab = "Time (years)",ylab = "Cumulative Survival", 
                 main = "Survival by Sex Log Scale")
 legend("topright", c("Females","Males"), col = c("navy","red"), 
        lty = c(1,2), lwd =1)
+
 
 
 #Summary statistics
@@ -210,7 +212,7 @@ birds <- read.csv("Erin_Surv_All.csv")
 
 #remove duplicates 
 birds2 <- birds[!duplicated(birds),]
-#str(birds2)
+str(birds2)
 
 colnames(birds2)[7] <- "LastObsDate"
 
@@ -245,19 +247,30 @@ birds2$days <- as.numeric(birds2$days)
 birds2$yrs <- as.numeric(birds2$yrs)
 birds2$FYear <- as.factor(birds2$FYear)
 
+<<<<<<< HEAD
+#How many males and females?
+sum(birds2$Sex == "M")
+sum(birds2$Sex == "F")
+
+=======
 #birds2 <- birds2[-which(birds2$Sex == ""),]
 #How many males and females?
 sum(birds2$Sex == "M")
 sum(birds2$Sex == "F")
+>>>>>>> b948091607c458ccab04e5f044dff7732d17c1cc
 
 #Create survival object based off Gordon's Cactus Finch example
 survobj <- Surv(birds2$yrs, birds2$censorship, type =c('right'))
 
 all.lifetab <- survfit(survobj~1)
-all.fit <- plot(jay.lifetab, xlab = "Time (years)", 
+all.fit <- plot(all.lifetab, xlab = "Time (years)", 
 ylab = "Cumulative Survival", main = "All known-age birds",
 pin = c(5,5))
 
+<<<<<<< HEAD
+#Log scale
+=======
+>>>>>>> b948091607c458ccab04e5f044dff7732d17c1cc
 all.log <- plot(all.lifetab, log = "y", ylim=c(0.001,2),
      xlab =  "Time (years)", ylab = "Cumulative Survival", 
       main = "Survival of Known Age Birds - Log Scale")
@@ -275,9 +288,47 @@ all.logsex <- plot(all.sex, col = c("blue", "red"), log = "y",
 legend("topright", c("Females","Males"), col = c("blue","red"),
        lty = c(1,2), lwd = 2)
 
+##Put the curves for breeders and all birds on the same figure 
+#Now on the same plot
+plot(jay.lifetab, xlab = "Time (years)",
+     log = "y", col = "red", ylim = c(0.001,2), ylab = "Cumulative Survival", 
+     main = "FL Scrub Survival Log Scale")
+lines(all.lifetab, log = "y", lty = 1, col = "dodgerblue")
+legend("topright", c("Breeders","All Birds"), col=c("red", "dodgerblue"), 
+       lty= c(1,1), lwd = 2)
+
+plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
+     lty  = c(1,2), xlab = "Time (years)",ylab = "Cumulative Survival", 
+     main = "Survival by Sex Log Scale")
+lines(all.sex, log = "y", lty = 1, col = c("green","purple"))
+legend("topright", c("Female Breeders","Male Breeders","Female All","Male All"), 
+       col=c("navy", "red", "green", "purple"), 
+       lty= c(1,1,1,1), lwd = 2)
+
 #Doesn't work right - warning message: X matrix deemed to be singular
 cox <- coxph(survobj ~ birds2$Sex, data = birds2)
-cox1 <- coxph(survobj ~ birds2$FYear, data = birds2)
+cox2 <- coxph(survobj ~ birds2$FYear, data = birds2)
+summary(cox)
+summary(cox2)
+
+res1 <- cox.zph(cox)
+res1
+plot(res1)
+#Hmm, with all birds together, the hazards do not seem to be proportional
+
+
+#Test to see if the order of the covariates matter
+cox3 <- coxph(survobj ~ birds2$Sex + birds2$FYear, data = birds2)
+cox4 <- coxph(survobj ~ birds2$FYear + birds2$Sex, data = birds2)
+summary(cox3)
+summary(cox4)
+#The order doesn't appear to matter, the estimates are the same 
+
+extractAIC(cox)
+extractAIC(cox2)
+extractAIC(cox3)
+extractAIC(cox4)
+
 
 #AFT model for sex
 AFT.sex <- survreg(survobj ~ Sex, data = birds2, dist = "weibull")

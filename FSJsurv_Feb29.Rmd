@@ -5,12 +5,14 @@ date: "Monday, February 29, 2016"
 output: html_document
 ---
 
-###Review on FSJ Survival Analyses so far
+### Review on FSJ Survival Analyses so far
 Alright so I figured out how the data need to be set up for the model to work correctly. I have fit both Cox proportional hazard and accelerated life models to 2 subsets of the scrub-jay data.  
-###Subset 1: All known age birds from 1981 to 2015
+### Subset 1: All known age birds from 1981 to 2015
 The first subset of data consists of all known age birds who fledged between 1981 and 2015. The data frame includes jay ID (both band number and color), date fledged, date last seen, sex and a few other fields. There are 1076 females and 1013 males for a total sample size of 2089. 
+
 ```{r, echo=FALSE}
-setwd("C:/Users/Erin/LittleBlueDinos")
+#use this on school desktop
+setwd("C:/Users/efeichtinger/LittleBlueDinos")
 library(survival)
 library(car)
 library(kinship2)
@@ -83,24 +85,28 @@ Both figures represent Kaplan-Meier estimates of survival over time. Here, survi
 cox <- coxph(survobj ~ birds2$Sex, data = birds2)
 summary(cox)
 ```
+
 We can see from the output that sex is a significant predictor, however, the R^2=0.008. The sign for the coefficient is negative meaning that being male reduces your hazard or risk of dying at any given time. But again, sex does not explain much of the variation in hazard over time. We can add some predictors including year of fledging and group size.  
 
-Another type of model for time to event or survival data are accelerated life models or accelerated failure time models. Let's look at the fit of the AFT model with sex as a predictor. 
+Another type of model for time to event or survival data are accelerated life models or accelerated failure time models. Let's look at the fit of the 
+AFT model with sex as a predictor. 
 ```{r}
 AFT.sex <- survreg(survobj ~ Sex, data = birds2, dist = "weibull")
 summary(AFT.sex)
 ```
+
 The output here shows that sex is significant but I'm not sure it means anything. Notice that the sign of the estimated coefficient for SexM is positive. This is the opposite of the Cox model and it should be! AFT models focus on survival, or time to event, rather than focus directly on the hazard function. For some individuals, death will come sooner (shorter failure time) than others. A positive coefficient means that the covariate increases failure time, or increaes survival time. The effect of sex on survival is consistent between the two types of models. 
 
-###Subset 2: Breeders from 1981 to 2015
+### Subset 2: Breeders from 1981 to 2015
 The second subset of data are birds of known and unknown age who bred in the population. The first date of breeding, or start of the interval, is the minimum date a bird was known to lay or sire an egg. The end of the interval is date last seen or October 14, 2015. 
+
 ```{r, echo=FALSE}
 bird.df <- read.csv("Breeders_Fall.csv")
-str(bird.df)
+#str(bird.df)
 
 #remove duplicates  - for years where there was more than one nest in a year
 jay.df<- bird.df[!duplicated(bird.df),]
-str(jay.df)
+#str(jay.df)
 
 #colnames(jay.df)[1] <- "ID"
 #colnames(jay.df)[2] <- "Band"
@@ -156,9 +162,11 @@ legend("topright", c("Females","Males"), col = c("navy","red"),
        lty = c(1,2), lwd =1)
 
 ```
+
 The survival curves are the Kaplan-Meier estimates of survival shown for both sexes combined and separately. The curves for male and female breeders overlap for about 8 years from the start. Note that time 0 is when an individual started breeding. The average age at first breeding for males and females is 2.5 years. 
 
 Here are the curves again so we can compare the estimates between the subsets of data, all known age birds and breeders from 1981 to 2015. 
+
 ```{r, echo=FALSE}
 all.log <- plot(all.lifetab, log = "y", ylim=c(0.001,2),
      xlab =  "Time (years)", ylab = "Cumulative Survival", 
@@ -180,7 +188,7 @@ legend("topright", c("Females","Males"), col = c("navy","red"),
        lty = c(1,2), lwd =1)
 
 ```
-###Cox Proportional Hazard models
+### Cox Proportional Hazard models
 
 ```{r}
 #Age at first breeding 
@@ -220,6 +228,7 @@ Just to be thorough, let's look at age and first year as covariates.
 cox5 <- coxph(jay.ob ~ AgeFirstBreed + FirstYr, data = jay.df)
 summary(cox5)
 ```
+
 Same as before with regards to the coefficients and R^2 is very similar. 
 
 ```{r}
@@ -229,9 +238,10 @@ extractAIC(cox3)
 extractAIC(cox4)
 extractAIC(cox5)
 ```
+
 Models 4 and 5 have the lowest AIC scores of this group of models. The AIC scores are identical. Model 4 is age at first breeding, sex and year at first breeding. Model 5 is age and year. 
 
-###Accelerated Life Models
+### Accelerated Life Models
 ```{r}
 #AFT model with Weibull distribution and age at first breeding 
 AFT.weibull <- survreg(jay.ob ~ AgeFirstBreed, data = jay.df, dist = "weibull")
@@ -250,6 +260,7 @@ AFT.weibull4 <- survreg(jay.ob ~ AgeFirstBreed + Sex + FirstYr,
       data = jay.df, dist = "weibull")
 summary(AFT.weibull4)
 ```
+
 I don't know how to interpret the output for the AFT models and how to tell if they are "good" descriptions of the data. 
 
 ```{r}
@@ -261,7 +272,10 @@ extractAIC(AFT.weibull4)
 
 Model 4 is the most supported according to the AIC scores of the set of models compared. This model has age, year and sex as covariates. 
 
-###The next steps
+### The next steps
 1. Get group size in April for all birds and breeders from the database. I found an existing query that gives the group size in April of each year by territory. I have to figure out how to connect the field of group size to each individual bird. 
 2. Get subset of data for birds when they were heplers. 
+3. Get the other covariates ready to be used (pedigree, acorns and fire).
+4. Fit more models.
+
 
