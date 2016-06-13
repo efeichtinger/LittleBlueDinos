@@ -13,6 +13,7 @@ setwd("C:/Users/efeichtinger/Dropbox/Jay_data_nogithub")
 
 library(survival)
 library(car)
+library(coxme)
 library(kinship2)
 library(SurvRegCensCov)
 
@@ -131,8 +132,6 @@ median(jay)
 #Look at distribution of age of first time breeders 
 #Bar plot? Bubble plot? 
 #ggplot2
-
-
 
 
 #First Cox Models
