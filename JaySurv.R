@@ -2,6 +2,8 @@
 ## Moving on to the "real" analyses from the preliminary ones this spring
 ## Code adapted from BreedSurv.R
 
+setwd("C:/Users/efeichtinger/LittleBlueDinos/Data")
+
 library(survival)
 library(car)
 library(coxme)
@@ -18,10 +20,16 @@ aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
 ## Read in CSV file 
 bird.df <- read.csv("Erin_June_FY.csv")
 str(bird.df)
+## 2371 individuals 
 
 ## Change column name to Days for days lived and add a year column
 colnames(bird.df)[8] <- "Days"
 bird.df["Yrs"] <- bird.df$Days/365.25
+
+## Subset those birds who more than 365 days to find those who became helpers
+prebrdr <- subset(bird.df, Days >= 365)
+str(prebrdr)
+## 1009 individuals 
 
 ## How to the April Census Dates that are the year following fledge year?? 
 ## Can R even do this? Well, regardless, first step is to convert to dates
@@ -40,10 +48,15 @@ bird.df$DeadAlive[which(bird.df$Yrs < 1)] <- 1
 bird.df$FldgDate <- as.numeric(bird.df$FldgDate)
 bird.df$LastObsDate <- as.numeric(bird.df$LastObsDate)
 
+#very important piece of code for the model to work properly, remove any 
+#weird entries like birds that have negative years of experience or a negative
+#survival interval 
+bird.df <- subset(bird.df, bird.df$Days > 0)
+
 ## I don't think this is truly the way to do this, is there a way to restrict
 ## this to one year?? Because the birds are not truly censored if they are 
 ## alive after one year, so I don't know how to do this 
-bird.ob <- Surv(bird.df$Yrs, bird.df$DeadAlive, type =c('right'))
+bird.ob <- Surv(bird.df$Days, bird.df$DeadAlive, type =c('right'))
 
 jay.lifetab <- survfit(bird.ob~1, conf.type = "log-log")
 jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
