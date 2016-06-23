@@ -39,6 +39,7 @@ bird.df["Censor"] <- 1
 #Birds that are right censored (indicated by 0) are still alive after 1 year
 #post fledgling 
 bird.df$Censor[which(bird.df$Yrs > 1)]<-0
+bird.df<- subset(bird.df, bird.df$Yrs > 0)
 #subset to get rid of years less than 0
 yrlg.df <- subset(bird.df, bird.df$Yrs > 0)
 
@@ -50,15 +51,15 @@ yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
 yrlg.ob <- Surv(yrlg.df$Yrs, yrlg.df$Censor, type = c('right'))
 
 my.fit <- survfit(yrlg.ob~1, conf.type = "log-log")
+my.fit
+str(my.fit)
 
 plot.fit <- plot(my.fit, xlab = "Time (years)",
       log = "y", ylim = c(0.4, 1),xlim=c(0,1), ylab = "Cumulative Survival", 
                    main = "Yearlings")
-str(my.fit)
-my.fit
 
 ## KM for sex 
-my.fit2 <- survfit(yrlg.ob ~ yrlg.df$Sex)
+my.fit2 <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
 my.fit2
 str(my.fit2)
 
@@ -112,10 +113,11 @@ str(my.fit)
 
 ## Plot KM
 p1 <- plot(my.fit, main="Kaplan-Meier estimate with 95% CI",log = "y",
-           xlab="Years", ylab="surv function (log)",ylim = c(0.001,2))
+           xlab="Years", ylab="survival (log)",ylim = c(0.001,2))
 
 ## KM for sex 
 my.fit2 <- survfit(jay.ob ~ bird.df$Sex)
+my.fit2
 str(my.fit2)
 
 ## Plot KM estimate by sex
@@ -172,7 +174,7 @@ jay.fit <- plot(pre.fit,log="y", xlim = c(1,14), ylim=c(0.1,1), xlab = "Time (ye
                 ylab = "Cumulative Survival")
 #Km curve by sex
 sex.fit <- survfit(pre.ob~ Sex, data = prebrdr)
-sex.plot <- plot(sex.fit, log="y", xlim = c(1,14), ylim=c(0.1,1), xlab = "Time (years)", 
+sex.plot <- plot(sex.fit, log="y", xlim = c(1,14), ylim=c(0.01,1), xlab = "Time (years)", 
                  ylab = "Cumulative Survival")
 
 model1 <- coxph(pre.ob ~ Sex, data = prebrdr)
