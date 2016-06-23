@@ -2,7 +2,6 @@
 ## Moving on to the "real" analyses from the preliminary ones this spring
 ## Code adapted from BreedSurv.R
 
-setwd("C:/Users/efeichtinger/LittleBlueDinos/Data")
 
 library(survival)
 library(car)
