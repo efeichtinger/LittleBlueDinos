@@ -50,7 +50,7 @@ birds2["yrs"] <- birds2$days/365.25
 birds2 <- subset(birds2, birds2$days > 0)
 
 #add column for censorship status 
-birds2["censorship"] <- 1
+jay.df["censorship"] <- 1
 #If last observed date = 10/14/2015, 0 for still alive today
 birds2$censorship[which(birds2$LastObsDate=="2015-10-14")]<-0
 
