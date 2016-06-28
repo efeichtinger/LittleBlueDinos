@@ -16,10 +16,14 @@ aprilD <- read.csv("April_Census_Dates.csv")
 aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
 
 ## First data table to deal with, known age birds to figure out who died in the first year
-## Read in CSV file 
-bird.df <- read.csv("Erin_June_FY.csv")
+## Read in CSV file
+## June 28 It says all birds but really it can be used for first year
+## June 28 added clutch size 
+bird.df <- read.csv("Erin_June_All_Birds.csv")
+bird.df<- bird.df[!duplicated(bird.df),]
+
 str(bird.df)
-## 2371 individuals 
+## 2370 individuals 
 
 ## Change column name to Days for days lived and add a year column
 colnames(bird.df)[8] <- "Days"
