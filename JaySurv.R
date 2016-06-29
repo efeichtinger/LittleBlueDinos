@@ -8,6 +8,7 @@ library(car)
 library(coxme)
 library(kinship2)
 library(SurvRegCensCov)
+library(parfm)
 
 ## Read in April Census Dates
 aprilD <- read.csv("April_Census_Dates.csv")
@@ -21,6 +22,8 @@ aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
 ## June 28 added clutch size 
 bird.df <- read.csv("Erin_June_All_Birds.csv")
 bird.df<- bird.df[!duplicated(bird.df),]
+bird.df$ClutchNum <- as.numeric(bird.df$ClutchNum)
+
 
 str(bird.df)
 ## 2370 individuals 
@@ -46,6 +49,11 @@ bird.df<- subset(bird.df, bird.df$Yrs > 0)
 #subset to get rid of years less than 0
 yrlg.df <- subset(bird.df, bird.df$Yrs > 0)
 
+year <- as.POSIXlt(bird.df$FldgDate)$year+1900
+yrlg.df["FYear"] <- year
+yrlg.df$FYear <- as.factor(yrlg.df$FYear)
+
+
 #change back to numeric for survival object 
 yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
 yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
@@ -66,19 +74,68 @@ my.fit2 <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
 my.fit2
 str(my.fit2)
 
-plot.sex <- plot(my.fit2, xlab="years", log="y",  ylim = c(0.4, 1),xlim=c(0,1),
+plot.sex <- plot(my.fit2, col = c("navy","red"),
+                 xlab="years", log="y",  ylim = c(0.4, 1),xlim=c(0,1),
                  ylab = "survival", main = "Yearlings by sex")
+legend("topright", c("Females","Males"), col=c("navy","red"),
+       lty = c(1,2),lwd=1)
+
 ### Appears to be no difference between sexes for this first year, which 
 # isn't surprising, but right before 1 year old there is a difference
 
 ## Cox PH model with sex as a predictor 
 cx.yrl <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
-cx.yrl
 summary(cx.yrl)
-
+extractAIC(cx.yrl)
 #Check PH assumption
 cox.zph(cx.yrl)
 plot(cox.zph(cx.yrl))
+
+#Add clutch size as a predictor 
+cx.yrl2 <- coxph(yrlg.ob ~ ClutchNum, data = yrlg.df)
+summary(cx.yrl2)
+extractAIC(cx.yrl2)
+#Check PH assumption
+cox.zph(cx.yrl2)
+plot(cox.zph(cx.yrl2))
+
+#Clutch size and sex
+cx.yrl3 <- coxph(yrlg.ob ~ Sex + ClutchNum, data = yrlg.df)
+summary(cx.yrl3)
+extractAIC(cx.yrl3)
+#Check PH assumption
+cox.zph(cx.yrl3)
+plot(cox.zph(cx.yrl3))
+
+#Interaction between clutch size and sex
+cx.yrl4 <- coxph(yrlg.ob ~ ClutchNum + Sex + ClutchNum*Sex, data = yrlg.df)
+cx.yrl4
+extractAIC(cx.yrl4)
+
+#Cohort year, approach where it is a factor - trying frailty models next
+cx.yrl4 <- coxph(yrlg.ob ~ FYear, data = yrlg.df)
+extractAIC(cx.yrl4)
+
+#Cohort year and clutch size
+cx.yrl5 <- coxph(yrlg.ob ~ FYear + ClutchNum, data = yrlg.df)
+extractAIC(cx.yrl5)
+
+#cohort year, clutch size and sex
+cx.yrl6 <- coxph(yrlg.ob ~ FYear + ClutchNum + Sex, data = yrlg.df)
+extractAIC(cx.yrl6)
+plot(cox.zph(cx.yrl6))
+
+#parfm package 
+#frailty model 
+fr.mod <- parfm(yrlg.ob ~ ClutchNum + Sex, cluster = "FYear", 
+                data = yrlg.df, dist = "weibull", frailty = "gamma")
+#error - no rows to aggregate
+
+#Mixed effects cox model with year as randome effect
+mm1 <- coxme(yrlg.ob ~ ClutchNum + (1|FYear), data = yrlg.df)
+mm2 <- coxme(yrlg.ob ~ Sex + (1|FYear), data = yrlg.df)
+
+
 
 ######################################################################
 ## All known age birds 
