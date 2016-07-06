@@ -54,47 +54,117 @@ brdr.df$Censor[which(brdr.df$LastObsDate =="2016-4-12")] <- 0
 
 str(brdr.df)
 
+brdr.df[11] <- NULL
+brdr.df[9] <- NULL
+
+#These birds did become breeders 
+brdr.df["Censor"] <- 0
+
 ## Now how to find who is in the helper and breeder set (bird.df) and 
 #who is only in the breeder set
 #There are 482 birds that became helpers but did not make it to breeding 
 
 #Birds that made it to 1 year old but did not become breeders
 hlpr <- subset(bird.df, !(JayID %in% brdr.df$JayID))
-
-#add censorship column, some helpers are still alive as of this past April
-hlpr["Censor"] <- 1
-hlpr$Censor[which(hlpr$LastObsDate=="2016-4-12")] <- 0
-
-hlpr <- subset(hlpr, hlpr$Days > 0)
-
 str(hlpr)
 
-#Change dates back to numeric 
-hlpr$FldgDate <- as.numeric(hlpr$FldgDate)
-hlpr$LastObsDate <- as.numeric(hlpr$LastObsDate)
+#Need to add the birds in hlpr to the birds who did make it 
+#Add to brdr.df but needs some restructuring 
 
-##survival object for hlpr
-hlpr.ob <- Surv(hlpr$Yrs, hlpr$Censor, type= c('right'))
-km.fit <- survfit(hlpr.ob ~ 1, conf.type = "log-log")
+#Add 1 to all rows because they all died before becoming breeders
+hlpr["Censor"] <- 1
+
+brhlp <- rbind(brdr.df, hlpr)
+
+#But give 0 to birds still alive today! 
+brhlp$Censor[which(brhlp$LastObsDate=="2016-4-12")] <- 0
+
+brhlp <- subset(brhlp, brhlp$Yrs > 0)
+
+#add censorship column, some helpers are still alive as of this past April
+#hlpr["Censor"] <- 1
+#hlpr$Censor[which(hlpr$LastObsDate=="2016-4-12")] <- 0
+
+#hlpr <- subset(hlpr, hlpr$Days > 0)
+
+#str(hlpr)
+
+#Change dates back to numeric 
+brhlp$FldgDate <- as.numeric(brhlp$FldgDate)
+brhlp$LastObsDate <- as.numeric(brhlp$LastObsDate)
+
+## Birds coded 0 are either still alive today or made it to the breeder stage
+## Birds coded 1 died after turning 1 year old and 
+
+##survival object for helpers
+brhl.ob <- Surv(brhlp$Yrs, brhlp$Censor, type= c('right'))
+km.fit <- survfit(brhl.ob ~ 1, conf.type = "log-log")
 kmplot <- plot(km.fit, xlab="Time (years)", log = "y", 
             ylab = "Cumulative Survival (log)", main = "Helpers",
-            ylim = c(0.01,1), xlim = c(1,5))
+            ylim = c(0.45,1), xlim = c(1,5))
           
 
-km.sex <- survfit(hlpr.ob ~ hlpr$Sex, conf.type = "log-log")
+km.sex <- survfit(brhl.ob ~ brhlp$Sex, conf.type = "log-log")
 sexplot <- plot(km.sex,col = c("navy","red"), xlab = "Time (years)", log = "y",
                 ylab = "Cumulative Survival", main = "Helpers",
-                ylim =c(0.01,1), xlim = c(1,5))
+                ylim =c(0.40,1), xlim = c(1,5))
 legend("topright", c("Females","Males"), col=c("navy","red"),
        lty = c(1,2),lwd=1)
 
-cph.sex <- coxph(hlpr.ob ~ Sex, data = hlpr)
+cph.sex <- coxph(brhl.ob ~ Sex, data = brhlp)
 summary(cph.sex)
 cox.zph(cph.sex)
 plot(cox.zph(cph.sex))
 
 
-mm <- coxme(hlpr.ob ~ Sex + (1|NatalNest), data = hlpr)
-summary(mm)
+#mm <- coxme(brhl.ob ~ Sex + (1|NatalNest), data = brhlp)
+#summary(mm)
+
+
+
+####################################################
+## Read back in for breeders only, need to add the unknown age ones too
+
+brdr.df <- read.csv("Erin_June_KA_Breeders.csv")
+colnames(brdr.df)[8] <- "Days"
+brdr.df["Yrs"] <- brdr.df$Days/365.25
+
+brdr.df$FldgDate <- as.Date(brdr.df$FldgDate, format = "%m/%d/%Y")
+brdr.df$LastObsDate <- as.Date(brdr.df$LastObsDate, format = "%m/%d/%Y")
+brdr.df$BrdrDate <- as.Date(brdr.df$BrdrDate, format = "%m/%d/%Y")
+
+## censorship - 1 = dead, 0 = alive
+brdr.df["Censor"] <- 1 
+brdr.df$Censor[which(brdr.df$LastObsDate =="2016-4-12")] <- 0
+
+brdr.df <- subset(brdr.df, brdr.df$Yrs > 0 & brdr.df$Days > 0)
+
+str(brdr.df)
+View(brdr.df)
+
+brdr.df$FldgDate <- as.numeric(brdr.df$FldgDate)
+brdr.df$LastObsDate <- as.numeric(brdr.df$LastObsDate)
+brdr.df$BrdrDate <- as.numeric(brdr.df$BrdrDate)
+
+## Survival object for breeders (known age)
+br.ob <- Surv(brdr.df$Yrs, brdr.df$Censor, type =c('right'))
+
+## Kaplan Meier estimate
+br.fit <- survfit(br.ob ~ 1, conf.type= "log-log")
+br.plot <- plot(br.fit, xlab= "Time (years)", log = "y",
+                ylab="Cumulative Survival (log)", main = "Breeders",
+                xlim = c(0,15), ylim = c(0.01,1))
+
+br.sex <- survfit(br.ob ~ brdr.df$Sex, conf.type = "log-log")
+bx.plot <- plot(br.sex,col = c("navy","red"), xlab = "Time (years)", log = "y",
+                ylab = "Cumulative Survival", main = "Breeders",
+                ylim =c(0.40,1), xlim = c(1,5))
+legend("topright", c("Females","Males"), col=c("navy","red"),
+       lty = c(1,2),lwd=1)
+
+c1 <- coxph(br.ob ~ Sex, data = brdr.df)
+summary(c1)
+cox.zph(c1)
+plot(cox.zph(c1))
 
 
