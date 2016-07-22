@@ -53,10 +53,16 @@ my.fit <- survfit(yrlg.ob~1, conf.type = "log-log")
 my.fit
 str(my.fit)
 
+my.fit$surv
+
+#stepfunction
+kms <- survfit(yrlg.ob ~ 1)
+survest <- stepfun(kms$time, c(1, kms$surv))
+
 ## Plot survival curve from KM estimate (my.fit)
 plot.fit <- plot(my.fit, xlab = "Time (years)",
         log = "y", ylim = c(0.4, 1),xlim=c(0,1), ylab = "Cumulative Survival", 
-        main = "Yearlings")
+        main = "Fledge to 1Yr")
 
 ## KM for sex 
 my.fit2 <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
@@ -123,20 +129,28 @@ extractAIC(cx.yrl5)
 extractAIC(cx.yrl6)
 extractAIC(cx.yrl7)
 
-#Mixed effects cox model with year as randome effect
+#Mixed effects cox model with year as random effect
 mm1 <- coxme(yrlg.ob ~ ClutchNum + (1|FYear), data = yrlg.df)
+mm1
 mm2 <- coxme(yrlg.ob ~ Sex + (1|FYear), data = yrlg.df)
+mm2
 mm3 <- coxme(yrlg.ob ~ Sex + (ClutchNum|FYear), data = yrlg.df)
-#mm4 does not work 
-mm4 <- coxme(yrlg.ob ~ ClutchNum + (Sex|FYear), data = yrlg.df)
+mm3
+
+mm4 <- coxme(yrlg.ob ~ Sex + (1|ClutchNum), data = yrlg.df)
+
+mm5 <- coxme(yrlg.ob ~ Sex + (1|NatalNest), data = yrlg.df)
+mm5
 
 #Frailty models using functions in the survival package 
 f1 <- coxph(yrlg.ob ~ Sex + ClutchNum + 
               frailty(FYear, dist='gamma'), data = yrlg.df)
 f2 <- coxph(yrlg.ob ~ ClutchNum + frailty(FYear, dist='gamma'), data = yrlg.df)
+summary(f1)
 summary(f2)
 extractAIC(f1)
 extractAIC(f2)
+
 
 
 
