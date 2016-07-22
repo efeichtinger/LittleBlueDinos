@@ -1,6 +1,8 @@
 #### Breeders
 #### July 21 2016
 
+library(survival)
+
 ## Read in file of breeders - known and unknown age
 
 brd <- read.csv("Breeders.csv")
@@ -34,3 +36,14 @@ brd$Censor[which(brd$LastObsDate =="2016-4-12")] <- 0
 
 brd <- subset(brd, brd$Yrs > 0)
 
+#Change dates back to numeric for surv object 
+brd$Fbreed <- as.numeric(brd$Fbreed)
+brd$LastObsDate <- as.numeric(brd$LastObsDate)
+brd$Yrs <- as.numeric(brd$Yrs)
+
+
+brd.ob <- Surv(brd$Yrs, brd$Censor,type= c('right'))
+brd.fit <- survfit(brd.ob ~ 1, conf.type = "log-log")
+kmplot <- plot(brd.fit, xlab="Time (years)", log = "y", 
+               ylab = "Cumulative Survival (log)", main = "Breeders",
+               ylim = c(0.01,1), xlim = c(0,15))
