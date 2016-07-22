@@ -9,12 +9,14 @@ library(kinship2)
 library(SurvRegCensCov)
 library(parfm)
 
+############################################################
 ## Read in April Census Dates
 aprilD <- read.csv("April_Census_Dates.csv")
 ## Convert to date object
 aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
 
 ## Read in data frame, all known age birds
+## Note that this comes from query names "Erin_June_FY" 
 bird.df <- read.csv("Erin_June_Birds.csv")
 str(bird.df)
 
@@ -29,6 +31,15 @@ bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
 bird.df <- subset(bird.df, bird.df$Yrs >= 1)
 str(bird.df)
 
+mean(bird.df$Yrs)
+range(bird.df$Yrs)
+sd(bird.df$Yrs)
+median(bird.df$Yrs)
+
+#remove duplicates 
+#birds2 <- birds[!duplicated(birds),]
+
+
 #1009 individuals which is consistent with the database
 #after removing helpers (in database), left with 527 known age breeders
 #need to figure out the birds that are in the 1009 dataframe but not
@@ -39,6 +50,8 @@ str(bird.df)
 #are in bird.df but the ones that died before becoming a breeder are not in 
 #brdr.df
 
+
+###########################################################
 ## Read in breeder data set with known-age breeders 
 brdr.df <- read.csv("Erin_June_KA_Breeders.csv")
 colnames(brdr.df)[8] <- "Days"
@@ -48,6 +61,7 @@ brdr.df$FldgDate <- as.Date(brdr.df$FldgDate, format = "%m/%d/%Y")
 brdr.df$LastObsDate <- as.Date(brdr.df$LastObsDate, format = "%m/%d/%Y")
 brdr.df$BrdrDate <- as.Date(brdr.df$BrdrDate, format = "%m/%d/%Y")
 
+###############################################
 ## censorship - 1 = dead, 0 = alive
 brdr.df["Censor"] <- 1 
 brdr.df$Censor[which(brdr.df$LastObsDate =="2016-4-12")] <- 0
@@ -56,7 +70,11 @@ str(brdr.df)
 
 brdr.df[11] <- NULL
 brdr.df[9] <- NULL
+################################################################
 
+
+################################################
+#Matching breeders and helpers
 #These birds did become breeders 
 brdr.df["Censor"] <- 0
 
@@ -120,11 +138,26 @@ plot(cox.zph(cph.sex))
 #mm <- coxme(brhl.ob ~ Sex + (1|NatalNest), data = brhlp)
 #summary(mm)
 
-
-
 ####################################################
-## Read back in for breeders only, need to add the unknown age ones too
+## July 21 2016 - breeders with both known and unknown age 
 
+## Read back in for breeders only, need to add the unknown age ones too
+unbr.df <- read.csv("Erin_UnknownAge_Breeders.csv")
+colnames(unbr.df)[1] <- "ID"
+colnames(unbr.df)[2] <- "Band"
+colnames(unbr.df)[4] <- "BrdrDate"
+
+unbr.df$LastObsDate <- as.Date(unbr.df$LastObsDate, format = "%m/%d/%Y")
+unbr.df$BrdrDate <- as.Date(unbr.df$BrdrDate, format = "%m/%d/%Y")
+
+unbr.df["Yrs"] <- (unbr.df$LastObsDate-unbr.df$BrdrDate)/365
+unbr.df["Censor"] <- 1
+unbr.df$Censor[which(unbr.df$LastObsDate =="2016-4-12")] <- 0
+
+unbr.df <- subset(unbr.df, unbr.df$Yrs >0)
+
+
+#####################################################
 brdr.df <- read.csv("Erin_June_KA_Breeders.csv")
 colnames(brdr.df)[8] <- "Days"
 brdr.df["Yrs"] <- brdr.df$Days/365.25
@@ -133,6 +166,11 @@ brdr.df$FldgDate <- as.Date(brdr.df$FldgDate, format = "%m/%d/%Y")
 brdr.df$LastObsDate <- as.Date(brdr.df$LastObsDate, format = "%m/%d/%Y")
 brdr.df$BrdrDate <- as.Date(brdr.df$BrdrDate, format = "%m/%d/%Y")
 
+#Add first year of breeding 
+year <- as.POSIXlt(brdr.df$BrdrDate)$year+1900
+brdr.df["FirstYear"] <- year
+brdr.df$FirstYear <- as.factor(brdr.df$FirstYear)
+
 ## censorship - 1 = dead, 0 = alive
 brdr.df["Censor"] <- 1 
 brdr.df$Censor[which(brdr.df$LastObsDate =="2016-4-12")] <- 0
@@ -140,12 +178,25 @@ brdr.df$Censor[which(brdr.df$LastObsDate =="2016-4-12")] <- 0
 brdr.df <- subset(brdr.df, brdr.df$Yrs > 0 & brdr.df$Days > 0)
 
 str(brdr.df)
-View(brdr.df)
+#View(brdr.df)
 
-brdr.df$FldgDate <- as.numeric(brdr.df$FldgDate)
-brdr.df$LastObsDate <- as.numeric(brdr.df$LastObsDate)
-brdr.df$BrdrDate <- as.numeric(brdr.df$BrdrDate)
+#have to add in age at first breeding 
+brdr.df <- brdr.df[,c(1,7,2,3,9,11,6)]
 
+##Move after manipulation
+
+#brdr.df$FldgDate <- as.numeric(brdr.df$FldgDate)
+#brdr.df$LastObsDate <- as.numeric(brdr.df$LastObsDate)
+#brdr.df$BrdrDate <- as.numeric(brdr.df$BrdrDate)
+
+## Manipulate dfs to be in same format to bind
+unbr.df <- unbr.df[,c(1,2,8,7,4,3,5,6,9,10)]
+
+
+
+
+
+#######################################################
 ## Survival object for breeders (known age)
 br.ob <- Surv(brdr.df$Yrs, brdr.df$Censor, type =c('right'))
 
@@ -154,6 +205,9 @@ br.fit <- survfit(br.ob ~ 1, conf.type= "log-log")
 br.plot <- plot(br.fit, xlab= "Time (years)", log = "y",
                 ylab="Cumulative Survival (log)", main = "Breeders",
                 xlim = c(0,15), ylim = c(0.01,1))
+
+br.fit
+str(br.fit)
 
 br.sex <- survfit(br.ob ~ brdr.df$Sex, conf.type = "log-log")
 bx.plot <- plot(br.sex,col = c("navy","red"), xlab = "Time (years)", log = "y",
