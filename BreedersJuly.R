@@ -2,8 +2,14 @@
 #### July 21 2016
 
 library(survival)
+library(ggplot2)
+
+#################################################################
+
+# Block 1 - Input data, manipulate, make survival object, fix basic Cox Model
 
 ## Read in file of breeders - known and unknown age
+## One record per individual 
 
 brd <- read.csv("Breeders.csv")
 
@@ -17,6 +23,9 @@ colnames(brd)[4] <- "Fbreed"
 
 
 brd <- brd[,c(1,2,8,7,6,3,4,5)]
+
+#minimum age at first breeding 
+colnames(brd)[5] <- "MinAgeFBr"
 
 #Set all blanks to NA
 brd[brd==""] <- NA
@@ -35,6 +44,9 @@ brd["Censor"] <- 1
 brd$Censor[which(brd$LastObsDate =="2016-4-12")] <- 0
 
 brd <- subset(brd, brd$Yrs > 0)
+#does not work - snytax to account for date 
+brd <- subset(brd, brd$FY >= "1981")
+
 
 #Change dates back to numeric for surv object 
 brd$Fbreed <- as.numeric(brd$Fbreed)
@@ -42,8 +54,48 @@ brd$LastObsDate <- as.numeric(brd$LastObsDate)
 brd$Yrs <- as.numeric(brd$Yrs)
 
 
+#summary stats for breeder lifespan, i.e. time spent as a breeder
+#not total lifespan 
+mean(brd$Yrs)
+var(brd$Yrs)
+sd(brd$Yrs)
+
 brd.ob <- Surv(brd$Yrs, brd$Censor,type= c('right'))
 brd.fit <- survfit(brd.ob ~ 1, conf.type = "log-log")
-kmplot <- plot(brd.fit, xlab="Time (years)", log = "y", 
+
+# adjust x axis it's breeding span 
+kmplot <- plot(brd.fit, xlab="Breeding time span (years)", log = "y", 
                ylab = "Cumulative Survival (log)", main = "Breeders",
                ylim = c(0.01,1), xlim = c(0,15))
+
+brd.sex <- survfit(brd.ob ~ brd$Sex, conf.type="log-log")
+sxplot <- plot(brd.sex, col = c("deepskyblue3","darkorange3"), 
+               xlab = "Breeding time span (years)", log="y", 
+               ylab = "Cumulative Survival (log)", main = "Breeders",
+               ylim = c(0.01,1), xlim = c(0,15))
+legend("topright", c("Females","Males"), col=c("deepskyblue3","darkorange3"),
+       lty = c(1,1),lwd=1)
+
+cx1 <- coxph(brd.ob ~ Sex, data = brd)
+summary(cx1)
+cox.zph(cx1)
+plot(cox.zph(cx1))
+
+
+####################################################################
+# Block 2 - Input of Vegetation, fire, and terr size data
+# Manipulation for use in models
+
+dom.veg <- read.csv("dom_veg.csv")
+tsf <- read.csv("tsf_terr.csv")
+terr <- read.csv("terr_size.csv")
+
+#####################################################################
+# Block 3 - Input of data for each year bred 
+## Read in file for breeders all years, multiple records per individual
+## Time varying Cox Models 
+
+
+#####################################################################
+
+# Block 4 - Models 
