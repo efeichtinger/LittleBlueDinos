@@ -173,7 +173,11 @@ str(my.fit)
 
 ## Plot KM
 p1 <- plot(my.fit, main="Kaplan-Meier estimate with 95% CI",log = "y",
-           xlab="Years", ylab="survival (log)",ylim = c(0.001,2))
+           xlab="Years", ylab="survival (log)",xlim = c(1,15),
+           ylim = c(0.001,1))
+
+p1 <- plot(my.fit, main="Kaplan-Meier estimate with 95% CI",
+           xlab="Years", ylab="survival (log)",xlim = c(1,15))
 
 ## KM for sex 
 my.fit2 <- survfit(jay.ob ~ bird.df$Sex)
@@ -190,7 +194,8 @@ mod1
 summary(mod1)
 
 # estimate the distribution of survival times 
-p3 <- plot(survfit(mod1), xlab = "years")
+p3 <- plot(survfit(mod1), xlab = "years", ylab = "Cumulative Survival",
+           main="All known age birds")
 
 #Tests for the PH assumption - tests based on scaled Schoenfeld residuals
 cox.zph(mod1)
