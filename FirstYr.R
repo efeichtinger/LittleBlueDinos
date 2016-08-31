@@ -3,11 +3,16 @@
 ## Source code from "JaySurv.R" 
 
 library(survival)
+library(ggplot2)
 library(car)
 library(coxme)
 library(kinship2)
 library(SurvRegCensCov)
 library(parfm)
+
+##########################################################################
+
+# Block 1 - Input data, manipulate, make survival object
 
 ## Read in April Census Dates
 aprilD <- read.csv("April_Census_Dates.csv")
@@ -75,6 +80,9 @@ plot.sex <- plot(my.fit2, col = c("navy","red"),
 legend("topright", c("Females","Males"), col=c("navy","red"),
        lty = c(1,2),lwd=1)
 
+#########################################################################
+
+# Block 2 - fit Cox PH and AFT models 
 
 ## Cox PH Models
 
@@ -86,7 +94,7 @@ summary(cx.yrl)
 cox.zph(cx.yrl)
 plot(cox.zph(cx.yrl))
 
-# Model 2 with clutch size as single predictor 
+# Model 2 with clutch size as single predictor (number of birds in nest)
 cx.yrl2 <- coxph(yrlg.ob ~ ClutchNum, data = yrlg.df)
 summary(cx.yrl2)
 
@@ -104,7 +112,7 @@ plot(cox.zph(cx.yrl3))
 
 # Model 4 interaction between clutch size and sex
 cx.yrl4 <- coxph(yrlg.ob ~ ClutchNum + Sex + ClutchNum*Sex, data = yrlg.df)
-cx.yrl4
+summary(cx.yrl4)
 
 ## Check PH assumption
 cox.zph(cx.yrl4)
@@ -129,18 +137,37 @@ extractAIC(cx.yrl5)
 extractAIC(cx.yrl6)
 extractAIC(cx.yrl7)
 
+########################################################################
+
+# Block 3 - frailty models, mixed effects Cox models 
+
+
 #Mixed effects cox model with year as random effect
+#First model - nest size fixed effect 
 mm1 <- coxme(yrlg.ob ~ ClutchNum + (1|FYear), data = yrlg.df)
 mm1
-mm2 <- coxme(yrlg.ob ~ Sex + (1|FYear), data = yrlg.df)
+
+#Natal nest as random effect, does this make sense with clutch size as fixed?
+mm2 <- coxme(yrlg.ob ~ ClutchNum + (1|NatalNest), data = yrlg.df)
 mm2
-mm3 <- coxme(yrlg.ob ~ Sex + (ClutchNum|FYear), data = yrlg.df)
-mm3
 
-mm4 <- coxme(yrlg.ob ~ Sex + (1|ClutchNum), data = yrlg.df)
+## Not really useful because sex doesn't lend much predictive power 
+#mm2 <- coxme(yrlg.ob ~ Sex + (1|FYear), data = yrlg.df)
+#mm2
 
-mm5 <- coxme(yrlg.ob ~ Sex + (1|NatalNest), data = yrlg.df)
-mm5
+#don't use
+#mm3 <- coxme(yrlg.ob ~ Sex + (ClutchNum|FYear), data = yrlg.df)
+#mm3
+
+#doesn't make sense 
+#mm4 <- coxme(yrlg.ob ~ Sex + (1|ClutchNum), data = yrlg.df)
+
+#Sex is not important here (at least from a modeling perspective)
+#mm5 <- coxme(yrlg.ob ~ Sex + (1|NatalNest), data = yrlg.df)
+#mm5
+
+
+
 
 #Frailty models using functions in the survival package 
 f1 <- coxph(yrlg.ob ~ Sex + ClutchNum + 
@@ -151,7 +178,13 @@ summary(f2)
 extractAIC(f1)
 extractAIC(f2)
 
+#AFT models
+AFT.weibull <- survreg(yrlg.ob ~ ClutchNum + frailty(FYear, dist='gamma'), 
+                        data = yrlg.df, dist = "weibull")
+AFT.weibull
 
-
+########################################################################
+# Block 4 - Input of Vegetation, fire, and terr size data
+# Manipulation for use in models
 
 
