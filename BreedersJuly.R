@@ -3,6 +3,11 @@
 
 library(survival)
 library(ggplot2)
+library(car)
+library(coxme)
+library(kinship2)
+library(SurvRegCensCov)
+library(parfm)
 
 #################################################################
 
