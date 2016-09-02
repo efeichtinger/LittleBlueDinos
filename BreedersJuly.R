@@ -95,6 +95,45 @@ dom.veg <- read.csv("dom_veg.csv")
 tsf <- read.csv("tsf_terr.csv")
 terr <- read.csv("terr_size.csv")
 
+## include terrs with zero scrub and zero patches in 1-9 fire window?
+## extract too
+#
+
+#Subset data to only keep scrub veg types
+
+#create object to store charc strings corresponding to scrub types
+keep <- c("RSh", "SFi", "SFl", "SFx", "SSo", "SSr")
+#creat new data frame with only the scrub types in "keep"
+vegdf <- dom.veg[dom.veg$Dom.Veg %in% keep, ]
+
+#Is this correct?? - seems so 
+#Creating another new data frame from "vegdf" with summarise argument
+#Summing the values for cell counts of each scrub type by terryr
+scrub.terr <- ddply(vegdf, .(Terryr), summarise, 
+            Count.Dom.Veg=sum(Count.Dom.Veg))
+colnames(scrub.terr) <- c("TerrYr", "ScrubCount")
+
+#TSF data
+#Create object for the numbers, same logic as with veg data
+keep2 <- c(1,2,3,4,5,6,7,8,9)
+firedf <- tsf[tsf$TSF_years %in% keep2, ]
+tsf.terr <- ddply(firedf, .(TERRYR), summarise, CellCount=sum(CellCount))
+colnames(tsf.terr) <- c("TerrYr", "FireCount")
+
+
+#Territory size, cell counts by terryr
+#terr - already has one count per terryr
+str(terr)
+terr.size <- terr
+
+
+## Merge data frames by terryr - 4 cols terryr, scrub, tsf, terr cell count
+
+
+
+
+
+
 #####################################################################
 # Block 3 - Input of data for each year bred 
 ## Read in file for breeders all years, multiple records per individual
