@@ -143,6 +143,9 @@ colnames(scrub.terr)[2] <- "scrb.count"
 #Six types of oak scrub, also included 19 terryrs with 0 cell count
 scr.ct <- rbind(scrub.terr, no.scr)
 
+
+scr.ct
+
 ########################################################################
 #Time since fire data
 
@@ -157,14 +160,28 @@ tsf.terr <- ddply(firedf, .(TERRYR), summarise, CellCount=sum(CellCount))
 colnames(tsf.terr) <- c("TerrYr", "FireCount")
 
 no.tsf1 <- subset(tsf, !(TERRYR %in% tsf.terr$TerrYr))
-#Want cell count
-#Makes sense for "0" if no oak scrub (bc zero cells with scrub)
-#But not here because we want the number of cells 
+no.tsf1["tsf.count"] <- 0
+#Do I want zeros or cell count
+#I think GF said not to use proportional data
+#In that case it would be zeros if no part of terryr has patches in the 1-9
+#tsf window
+
+head(tsf.terr)
+head(no.tsf1)
+
+names(tsf.terr)
+names(no.tsf1)
+
+#Keep only terryr and scrb.count
+vars3 <- c("TerrYr","tsf.count")
+no.tsf1 <- no.tsf1[vars3]
+
+colnames(tsf.terr)[2] <- "tsf.count"
 
 
+tsf.ct <- rbind(tsf.terr,no.tsf1)
 
 ##########################################################################
-
 
 ##territory size
 
@@ -178,6 +195,12 @@ colnames(terr) <- c("TerrYr", "TerrSize")
 
 #territory size 
 veg.size <- merge(scr.ct,terr)
+#info on territory quality, cell count of scrub, size, tsf in 1-9 window
+terr.info <- merge(veg.size, tsf.ct)
+
+#remove duplicate rows 
+terr.info <- terr.info[!duplicated(terr.info),]
+
 
 #####################################################################
 # Block 3 - Input of data for each year bred 
@@ -202,11 +225,17 @@ all.brd <- all.brd[!duplicated(all.brd),]
 
 #losing rows but I don't understand why, I think bc no breeding at terr
 #Data frame with most information needed 
-all <- merge(all.brd, veg.size)
+all <- merge(all.brd, terr.info)
+### seems to have worked.......
 
 #reorganize data frame 
 #two columns for sex and some other unnecessary cols 
 #change order to better facilitate analyses
+
+#brd <- brd[,c(1,2,8,7,6,3,4,5)]    #to rearrange cols
+names(all)
+all.info <- all[,c(2,15,5,6,8,9,10,7,3,1,14,16,17,19,18,20)]
+
 #####################################################################
 
 # Block 4 - Models 
