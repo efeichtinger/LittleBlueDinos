@@ -94,8 +94,10 @@ plot(cox.zph(cx1))
 # Manipulation for use in models
 
 dom.veg <- read.csv("dom_veg.csv")
-tsf <- read.csv("tsf_terr.csv")
-terr <- read.csv("terr_size.csv")
+dom.veg <- subset(dom.veg, InABS == TRUE)
+
+
+##############################################################################
 
 ## include terrs with zero scrub and zero patches in 1-9 fire window?
 ## extract too
@@ -107,6 +109,7 @@ terr <- read.csv("terr_size.csv")
 keep <- c("RSh", "SFi", "SFl", "SFx", "SSo", "SSr")
 #creat new data frame with only the scrub types in "keep"
 vegdf <- dom.veg[dom.veg$Dom.Veg %in% keep, ]
+
 
 #Is this correct?? - seems so 
 #Creating another new data frame from "vegdf" with summarise argument
@@ -121,6 +124,30 @@ colnames(scrub.terr) <- c("TerrYr", "Dom.Veg")
 #hlpr <- subset(bird.df, !(JayID %in% brdr.df$JayID))
 #str(hlpr)
 
+#I think this gives me the terryrs that have no oak scrub 
+no.scr <- subset(dom.veg, !(Terryr %in% scrub.terr$TerrYr))
+no.scr["scrb.count"] <- 0
+
+#Keep only terryr and scrb.count
+vars <- c("Terryr","scrb.count")
+no.scr <- no.scr[vars]
+
+#remove duplicate rows 
+no.scr <- no.scr[!duplicated(no.scr),]
+colnames(no.scr)[1] <- "TerrYr"
+colnames(scrub.terr)[2] <- "scrb.count"
+
+## add no.scr to scrub.terr
+
+#Object with territories in ABS with cell count of oak scrub by terryr
+#Six types of oak scrub, also included 19 terryrs with 0 cell count
+scr.ct <- rbind(scrub.terr, no.scr)
+
+########################################################################
+#Time since fire data
+
+tsf <- read.csv("tsf_terr.csv")
+tsf <- subset(tsf, InABS == TRUE)
 
 #TSF data
 #Create object for the numbers, same logic as with veg data
@@ -129,19 +156,28 @@ firedf <- tsf[tsf$TSF_years %in% keep2, ]
 tsf.terr <- ddply(firedf, .(TERRYR), summarise, CellCount=sum(CellCount))
 colnames(tsf.terr) <- c("TerrYr", "FireCount")
 
-
-#Territory size, cell counts by terryr
-#terr - already has one count per terryr
-str(terr)
-terr.size <- terr
-
-
-## Merge data frames by terryr - 4 cols terryr, scrub, tsf, terr cell count
-
-## Need to connect terryr to breeder data frame 
+no.tsf1 <- subset(tsf, !(TERRYR %in% tsf.terr$TerrYr))
+#Want cell count
+#Makes sense for "0" if no oak scrub (bc zero cells with scrub)
+#But not here because we want the number of cells 
 
 
 
+##########################################################################
+
+
+##territory size
+
+terr <- read.csv("terr_size.csv")
+terr <- subset(terr, InABS == TRUE)
+
+#Keep only terryr and scrb.count
+vars1 <- c("TERRYR","Count")
+terr <- terr[vars1]
+colnames(terr) <- c("TerrYr", "TerrSize")
+
+#territory size 
+veg.size <- merge(scr.ct,terr)
 
 #####################################################################
 # Block 3 - Input of data for each year bred 
@@ -156,10 +192,21 @@ brd.allyrs <- read.csv("breeders_allyears.csv")
 colnames(hlp.byterr)[1] <- "NestYear"
 colnames(brd.allyrs)[1] <- "JayID"
 
-new.df <- merge(brd.allyrs, hlp.byterr)
+all.brd <- merge(brd.allyrs, hlp.byterr)
 #Duplicate records for multiple nests
-#This seems to have worked 
+#This seems to have worked = I checked a few jays to make sure matches
+#are correct 
 
+#remove duplicate rows mulitple nests per year
+all.brd <- all.brd[!duplicated(all.brd),]
+
+#losing rows but I don't understand why, I think bc no breeding at terr
+#Data frame with most information needed 
+all <- merge(all.brd, veg.size)
+
+#reorganize data frame 
+#two columns for sex and some other unnecessary cols 
+#change order to better facilitate analyses
 #####################################################################
 
 # Block 4 - Models 
