@@ -153,6 +153,12 @@ hlp.byterr <- read.csv("Erin_Helpers_ByTerryr.csv")
 # Input of data with breeders all years 
 brd.allyrs <- read.csv("breeders_allyears.csv")
 
+colnames(hlp.byterr)[1] <- "NestYear"
+colnames(brd.allyrs)[1] <- "JayID"
+
+new.df <- merge(brd.allyrs, hlp.byterr)
+#Duplicate records for multiple nests
+#This seems to have worked 
 
 #####################################################################
 
