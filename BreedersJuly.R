@@ -8,6 +8,7 @@ library(coxme)
 library(kinship2)
 library(SurvRegCensCov)
 library(parfm)
+library(plyr)
 
 #################################################################
 
@@ -88,7 +89,8 @@ plot(cox.zph(cx1))
 
 
 ####################################################################
-# Block 2 - Input of Vegetation, fire, and terr size data
+# Block 2 - Input of Vegetation, fire, terr size, group size
+# Time-varying covarites 
 # Manipulation for use in models
 
 dom.veg <- read.csv("dom_veg.csv")
@@ -111,7 +113,14 @@ vegdf <- dom.veg[dom.veg$Dom.Veg %in% keep, ]
 #Summing the values for cell counts of each scrub type by terryr
 scrub.terr <- ddply(vegdf, .(Terryr), summarise, 
             Count.Dom.Veg=sum(Count.Dom.Veg))
-colnames(scrub.terr) <- c("TerrYr", "ScrubCount")
+colnames(scrub.terr) <- c("TerrYr", "Dom.Veg")
+
+##Use scrub.terr and dom.veg to find terryrs that dropped out? 
+#I used this to find birds who made it 1 yr but not to breeding 
+#Comparing two data frames 
+#hlpr <- subset(bird.df, !(JayID %in% brdr.df$JayID))
+#str(hlpr)
+
 
 #TSF data
 #Create object for the numbers, same logic as with veg data
@@ -129,7 +138,7 @@ terr.size <- terr
 
 ## Merge data frames by terryr - 4 cols terryr, scrub, tsf, terr cell count
 
-
+## Need to connect terryr to breeder data frame 
 
 
 
@@ -138,6 +147,11 @@ terr.size <- terr
 # Block 3 - Input of data for each year bred 
 ## Read in file for breeders all years, multiple records per individual
 ## Time varying Cox Models 
+
+# Input of data with helpers at each terr year with breeder IDs
+hlp.byterr <- read.csv("Erin_Helpers_ByTerryr.csv")
+# Input of data with breeders all years 
+brd.allyrs <- read.csv("breeders_allyears.csv")
 
 
 #####################################################################
