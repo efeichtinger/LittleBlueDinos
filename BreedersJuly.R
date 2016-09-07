@@ -50,8 +50,8 @@ brd["Censor"] <- 1
 brd$Censor[which(brd$LastObsDate =="2016-4-12")] <- 0
 
 brd <- subset(brd, brd$Yrs > 0)
-#does not work - snytax to account for date 
 brd <- subset(brd, brd$FY >= "1981")
+brd$FY <- as.factor(brd$FY)
 
 
 #Change dates back to numeric for surv object 
@@ -66,6 +66,25 @@ mean(brd$Yrs)
 var(brd$Yrs)
 sd(brd$Yrs)
 
+#mean age at first breeding 
+mean(brd$MinAgeFBr)
+sd(brd$MinAgeFBr)
+var(brd$MinAgeFBr)
+
+males <- subset(brd, Sex == "M")
+females <- subset(brd, Sex == "F")
+mean(males$Yrs)
+sd(males$Yrs)
+mean(females$Yrs)
+sd(females$Yrs)
+
+#mean age at first breeding 
+mean(males$MinAgeFBr)
+sd(males$MinAgeFBr)
+mean(females$MinAgeFBr)
+sd(females$MinAgeFBr)
+
+
 brd.ob <- Surv(brd$Yrs, brd$Censor,type= c('right'))
 brd.fit <- survfit(brd.ob ~ 1, conf.type = "log-log")
 
@@ -75,17 +94,66 @@ kmplot <- plot(brd.fit, xlab="Breeding time span (years)", log = "y",
                ylim = c(0.01,1), xlim = c(0,15))
 
 brd.sex <- survfit(brd.ob ~ brd$Sex, conf.type="log-log")
-sxplot <- plot(brd.sex, col = c("deepskyblue3","darkorange3"), 
+sxplot <- plot(brd.sex, col = c("darkblue","darkorange3"), 
                xlab = "Breeding time span (years)", log="y", 
                ylab = "Cumulative Survival (log)", main = "Breeders",
                ylim = c(0.01,1), xlim = c(0,15))
-legend("topright", c("Females","Males"), col=c("deepskyblue3","darkorange3"),
+legend("topright", c("Females","Males"), col=c("darkblue","darkorange3"),
        lty = c(1,1),lwd=1)
+
+cox.null <- coxph(brd.ob ~ 1, data = brd)
 
 cx1 <- coxph(brd.ob ~ Sex, data = brd)
 summary(cx1)
 cox.zph(cx1)
 plot(cox.zph(cx1))
+
+cx2 <- coxph(brd.ob ~ MinAgeFBr, data = brd)
+summary(cx2)
+cox.zph(cx2)
+plot(cox.zph(cx2))
+
+cx3 <- coxph(brd.ob ~ FY, data = brd)
+cx4 <- coxph(brd.ob ~ Sex + MinAgeFBr, data=brd)
+
+cx5 <- coxph(brd.ob ~ Sex + MinAgeFBr + FY, data=brd)
+cx6 <- coxph(brd.ob ~ Sex + MinAgeFBr + FY + Sex*MinAgeFBr, data = brd)
+
+
+extractAIC(cx1)
+extractAIC(cx2)
+extractAIC(cx3)
+extractAIC(cx4)
+extractAIC(cx5)
+extractAIC(cx6)
+
+#Deviance 
+anova(cx1)
+anova(cx2)
+anova(cx3)
+anova(cx4)
+anova(cx5)
+anova(cx6)
+
+anova(cx2,cx4)
+
+
+
+#Analysis of deviance table comparing first three Cox PH models 
+dev.compare <- anova(cx1, cx2, cx3, test="Chisq")
+dev.compare
+
+dev2 <- anova(cx3,cx5,cx6)
+dev2
+
+#Calculate residuals for Coxph fit 
+resd <- residuals(cx1, type="deviance", collapse=brd$ID)
+
+#Frailty models where year is a random effect 
+frail1 <- coxme(brd.ob ~ MinAgeFBr + (1|FY), data = brd)
+summary(frail1)
+frail2 <- coxme(brd.ob ~ Sex + (1|FY), data= brd)
+summary(frail2)
 
 
 ####################################################################
