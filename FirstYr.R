@@ -1,4 +1,6 @@
-## July 1 2016 (HOLY SHIT)
+## 9 13 2016 Major modifications
+
+## 7 1 2016 - First version  
 ## Script for first year birds 
 ## Source code from "JaySurv.R" 
 
@@ -21,11 +23,38 @@ aprilD <- read.csv("April_Census_Dates.csv")
 aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
 
 ## This is the full data set with all known age birds 
-bird.df <- read.csv("Erin_June_All_Birds.csv")
+#bird.df <- read.csv("Erin_June_All_Birds.csv")
+bird.df <- read.csv("Erin_June_All_BirdsMass.csv")
 bird.df<- bird.df[!duplicated(bird.df),]
-bird.df$ClutchNum <- as.numeric(bird.df$ClutchNum)
+
+## Finding number of NA's
+sum(is.na(bird.df$HatchNum))
+
+##Remove NA's for hatch number 
+bird.df <- bird.df[!is.na(bird.df$HatchNum),]
 
 str(bird.df)
+
+#Mean and sd number hatchlings
+mean(bird.df$HatchNum)
+sd(bird.df$HatchNum)
+
+#Mean and sd number fledglings 
+mean(bird.df$FldgNum)
+sd(bird.df$FldgNum)
+
+hmean <- mean(bird.df$HatchNum)
+fmean <- mean(bird.df$FldgNum)
+hsd <- sd(bird.df$HatchNum)
+fsd <- sd(bird.df$FldgNum)
+
+hfmeans <- data.frame(hmean, fmean)
+sds <- c(hsd, fsd)
+mnsd <- rbind(sds, hfmeans)
+colnames(mnsd) <- c("Hatchlings","Fledglings")
+rownames(mnsd) <- c("mean","sd")
+
+
 
 ## Change column name to Days for days lived and add a year column
 colnames(bird.df)[8] <- "Days"
@@ -41,8 +70,8 @@ bird.df["Censor"] <- 1
 bird.df$Censor[which(bird.df$Yrs > 1)]<-0
 
 year <- as.POSIXlt(bird.df$FldgDate)$year+1900
-bird.df["FYear"] <- year
-bird.df$FYear <- as.factor(bird.df$FYear)
+bird.df["Cohort"] <- year
+bird.df$Cohort <- as.factor(bird.df$Cohort)
 
 #subset to get rid of years less than 0
 yrlg.df <- subset(bird.df, bird.df$Yrs > 0 & bird.df$Days > 0)
@@ -86,24 +115,69 @@ legend("topright", c("Females","Males"), col=c("navy","red"),
 
 ## Cox PH Models
 
-# Model 1 with sex as only predictor
-cx.yrl <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
-summary(cx.yrl)
+#Model 1 with sex as only predictor
+cox.sex <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
+summary(cox.sex)
+#Check PH assumption
+cox.zph(cox.sex)
+plot(cox.zph(cox.sex))
 
-## Check PH assumption
-cox.zph(cx.yrl)
-plot(cox.zph(cx.yrl))
 
-# Model 2 with clutch size as single predictor (number of birds in nest)
-cx.yrl2 <- coxph(yrlg.ob ~ ClutchNum, data = yrlg.df)
-summary(cx.yrl2)
+#Model 2 with number of hatchlings in nest 
+cox.hatch <- coxph(yrlg.ob ~ HatchNum, data = yrlg.df)
+summary(cox.hatch)
+#Check PH assumption
+cox.zph(cox.hatch)
+plot(cox.zph(cox.hatch))
 
-## Check PH assumption
-cox.zph(cx.yrl2)
-plot(cox.zph(cx.yrl2))
+
+#Model 3 with number of fledglings from nest 
+cox.flg <- coxph(yrlg.ob ~ FldgNum, data= yrlg.df)
+summary(cox.flg)
+#Check PH assumption
+cox.zph(cox.flg)
+plot(cox.zph(cox.flg))
+
+#Model 4 with day 11/nestling mass as predictor
+#nestling mass (day 11) 
+cox.mass <- coxph(yrlg.ob ~ Weight, data = yrlg.df)
+summary(cox.mass)
+#Check PH assumption
+cox.zph(cox.mass)
+plot(cox.zph(cox.mass))
+
+#Model 5 with cohort year as predictor - not the best way to do this
+cox.cohort <- coxph(yrlg.ob ~ Cohort, data = yrlg.df)
+#Model Loglik converged before variable 6. beta may be infinite
+#So the beta estimates are not reliable but it does show first year surv
+#is influenced by year, almost each year coefficient has p < 0.05 
+#But I think frailty models will be better here for this 
+
+##full model why not
+cox.full <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight + Cohort, 
+                  data = yrlg.df)
+anova(cox.full)
+
+extractAIC(cox.sex)
+extractAIC(cox.mass)
+extractAIC(cox.hatch)
+extractAIC(cox.flg)
+extractAIC(cox.cohort)
+extractAIC(cox.full)
+
+#best of these simple models is the cohort one according to AIC 
+
+anova(cox.sex) #adds pretty much nothing to model (sex not good predictor)
+anova(cox.mass) #reduction in loglik but not by much 
+anova(cox.hatch)
+anova(cox.flg)
+anova(cox.cohort) #the biggest reduction in loglik
+
+#################################################################
+#Old as of 9 13 2016, using incorrect data and have adjusted 
 
 # Model 3 with clutch size and sex, no interaction
-cx.yrl3 <- coxph(yrlg.ob ~ Sex + ClutchNum, data = yrlg.df)
+cx.yrl3 <- coxph(yrlg.ob ~ Sex + HatchNum, data = yrlg.df)
 summary(cx.yrl3)
 
 ## Check PH assumption
@@ -144,28 +218,12 @@ extractAIC(cx.yrl7)
 
 #Mixed effects cox model with year as random effect
 #First model - nest size fixed effect 
-mm1 <- coxme(yrlg.ob ~ ClutchNum + (1|FYear), data = yrlg.df)
+mm1 <- coxme(yrlg.ob ~ FldgNum + (1|Cohort), data = yrlg.df)
 mm1
 
 #Natal nest as random effect, does this make sense with clutch size as fixed?
-mm2 <- coxme(yrlg.ob ~ ClutchNum + (1|NatalNest), data = yrlg.df)
+mm2 <- coxme(yrlg.ob ~ FldgNum + (1|NatalNest), data = yrlg.df)
 mm2
-
-## Not really useful because sex doesn't lend much predictive power 
-#mm2 <- coxme(yrlg.ob ~ Sex + (1|FYear), data = yrlg.df)
-#mm2
-
-#don't use
-#mm3 <- coxme(yrlg.ob ~ Sex + (ClutchNum|FYear), data = yrlg.df)
-#mm3
-
-#doesn't make sense 
-#mm4 <- coxme(yrlg.ob ~ Sex + (1|ClutchNum), data = yrlg.df)
-
-#Sex is not important here (at least from a modeling perspective)
-#mm5 <- coxme(yrlg.ob ~ Sex + (1|NatalNest), data = yrlg.df)
-#mm5
-
 
 
 
