@@ -225,22 +225,24 @@ mm1
 mm2 <- coxme(yrlg.ob ~ FldgNum + (1|NatalNest), data = yrlg.df)
 mm2
 
-
-
 #Frailty models using functions in the survival package 
-f1 <- coxph(yrlg.ob ~ Sex + ClutchNum + 
-              frailty(FYear, dist='gamma'), data = yrlg.df)
-f2 <- coxph(yrlg.ob ~ ClutchNum + frailty(FYear, dist='gamma'), data = yrlg.df)
+f1 <- coxph(yrlg.ob ~ Sex + HatchNum + 
+              frailty(Cohort, dist='gamma'), data = yrlg.df)
+f2 <- coxph(yrlg.ob ~ HatchNum + frailty(Cohort, dist='gamma'), data = yrlg.df)
 summary(f1)
 summary(f2)
 extractAIC(f1)
 extractAIC(f2)
 
 #AFT models
-AFT.weibull <- survreg(yrlg.ob ~ ClutchNum + frailty(FYear, dist='gamma'), 
+AFT.weibull <- survreg(yrlg.ob ~ HatchNum + frailty(Cohort, dist='gamma'), 
                         data = yrlg.df, dist = "weibull")
 AFT.weibull
 summary(AFT.weibull)
+
+AFT.int <- survreg(yrlg.ob ~ 1 + frailty(Cohort, dist='gamma'),
+              data = yrlg.df, dist = "weibull")
+summary(AFT.int)
 
 ########################################################################
 # Block 4 - Input of Vegetation, fire, and terr size data
