@@ -1,0 +1,12 @@
+---
+title: "First Year Survival"
+author: "Erin Feichtinger"
+date: "September 13, 2016"
+output: html_document
+---
+
+# First year survival 1981 - 2015
+
+### The data 
+
+
