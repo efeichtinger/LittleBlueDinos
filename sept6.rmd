@@ -160,6 +160,9 @@ I don't know how Gordon estimated a model deviance, but I am unable to find anyt
 I will have to talk to Gordon (and probably do a lot of searching for answers on my own) about this whole deviance business and how they got the reported values in their paper. I don't see any "deviance" term. Just the loglikelihoods and the reduction in those. Is this the same thing? 
 
 
+```{r}
+
+```
 
 
 
