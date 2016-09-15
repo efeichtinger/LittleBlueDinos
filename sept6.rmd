@@ -2,7 +2,7 @@
 title: "Breeder Survival"
 author: "Erin Feichtinger"
 date: "September 7, 2016"
-output: html_document
+output: pdf_document
 ---
 
 # Breeder Survival 1981 - 2016
@@ -11,9 +11,9 @@ output: html_document
 
 These data consist of Florida Scrub-Jay breeders at Archbold Biological Station from 1981 to 2016, i.e. birds who first bred between 1981 and 2016. These data include both birds of known and unknown age. Birds hatched on the study tract are of known age while immigrants are of unknown age. However, there is an estimate of minimum age for unknown age birds. Each row in the data frame represents a record for one individual. There is only one row per individual. The variables include bird ID, sex, ageknown (1 or 0), minimum age at first breeding, year of first breeding, years spent breeding, last date observed and censorship indicator. The right censored birds are the ones that are still alive as of the April 2016 monthly census. 
 
-N = 958 birds
-N males = 480
-N females = 479
+N = 958 birds  
+N males = 480  
+N females = 479  
 
 ### Model types
 1. Kaplan-Meier nonparametric survival estimates
@@ -70,14 +70,18 @@ The survival curves show the cumulative survival over the breeding lifespan. The
 Half of all breeders that started the interval are gone by a breeding span of 3 years. 80% of birds that started the interval have disappeared by 8 years of breeding (correspoding to about 10 years of age at a minimum). Most breeders have disappeared by a breeding timespan of 10 years (about 12 years of age).  
 The estimated survival probability for males and females is similar until about 6 years into the breeding period (at least 8 years old), then the curves start diverging. There is evidence of senecense in this species (MacDonald 1996; Fox et al. 2006) and there may be something related to this and females that lowers survival probability. However, very few birds make it past 10 years of age (time point 12 represents 14 years of age, approx) so we do not have the data to distingiush survival differences at old ages.   
 
-Summary stats breeding lifespan 
+Summary stats breeding lifespan
+
 Birds  | Mean (yrs) | SD
 -------|------------|-----
 All    | 3.39       | 2.96
 Females| 3.37       | 2.84
 Males  | 3.41       | 3.07
 
+
+
 Summary stats (minimum) age at first breeding
+
 Birds  | Mean (yrs) | SD
 -------|------------|-----
 All    | 2.58       | 1.02
@@ -86,7 +90,8 @@ Males  | 2.63       | 1.08
 
 The average breeding lifespan and age at first breeding are similar for males and females. There is a lot of variation in how long birds spend breeding. The standard deviation is almost as big as the mean. The mean minimum age at first breeding is similar between males and females, along with the standard deviation. This suggests that most birds are at least 2 or 3, on average, when breeding for the first time. 
 
-#### Cox Proportional Hazard Models 
+#### Cox Proportional Hazard Models  
+
 I estimated the null model LL by using an intercept only in the first Cox model (LL = -4863.76). Then, I added sex as a predictor. I assume that the hazards are proportional, since all individuals are likely to experience increases or decreases in hazard at the same time (e.g. increase in predators, other stochastic events). The R output for this model is below. 
 
 ```{r, echo = FALSE}
@@ -97,6 +102,7 @@ summary(cx1)
 
 The coefficient estimate for sex(male) is negative, meaning males have about a 6% reduction in hazard compared to females, but it is not significant. The loglikelihood ratio tests indicated that this is not a very good model given the data. Sex does not add much predictive power to the model.  
 We can test the proportional hazards assumption of this model. 
+
 ```{r, echo=FALSE}
 plot(cox.zph(cx1))
 ```
@@ -124,20 +130,26 @@ cx6 <- coxph(brd.ob ~ Sex + MinAgeFBr + FY + Sex*MinAgeFBr, data = brd)
 
 The warning message says that beta may be infinite. I'm guessing this is a problem of convergence and the beta estimate is biased...? I will have to ask about this. None of the coefficient estimates are significant. This is puzzling to me. In fact, the AIC scores say this is the least best fitting model of all three, however, the LL ratio test is the highest for this one. I think the frailty models will be more informitive. Either way, none of these simple models are very good given the data. Three more models fit, all three predictors no interaction, all 3 plus interaction between age and sex and age and sex.
 
-Model                     | AIC     | df
---------------------------|---------------
-Sex                       | 9728.7  | 1
-Age                       | 9722.9  | 1
-Year                      | 9744.6  | 35
-Sex + Age                 | 9723.7  | 2
-Sex + Age + Year          | 9744.3  | 37
-Sex + Age + Year + Sex*Age| 9740.5  | 38
+Model                      AIC     df  
 
-According to AIC, the best model of these 6 is the model with minimum age at first breeding. The next best model is sex and age. Year doesn't seem to explain much variation. All models with year are worse fits than those without, at least for this set and according to AIC. 
+Sex                        9728.7  1  
+Age                        9722.9  1  
+Year                       9744.6  35  
+Sex + Age                  9723.7  2  
+Sex + Age + Year           9744.3  37  
+Sex + Age + Year + Sex*Age 9740.5  38  
 
-#### Accelerated Failure Time Models 
+According to AIC, the best model of these 6 is the model with minimum age at first breeding. The next best model is sex and age. Year doesn't seem to explain much variation. All models with year are worse fits than those without, at least for this set and according to AIC.
 
-#### Frailty Models
+What about deviance? Use anova.coxph for analysis of deviance. 
+
+```{r, echo = FALSE}
+anova(cx6)
+```
+
+The biggest reduction in loglikelihood is for the full model with the model Sex + Age + Year close in units deviated from the null. 
+
+I can compute the analysis of deviance table and it shows me the LL when each term is added. When I compare the models with sex, age, and year, respectively, the lowest LL is for model 3. However, the AIC value is the highest out of the set of models and none of the coefficients for the 35 years are significant. I really don't know what to make of this. 
 
 ##### Mixed effects Cox models 
 
@@ -146,23 +158,22 @@ The first model has minimum age of first breeding as the fixed effect and year o
 ```{r, echo=FALSE}
 frail1 <- coxme(brd.ob ~ MinAgeFBr + (1|FY), data = brd)
 summary(frail1)
+frail2 <- coxme(brd.ob ~ Sex + (1|FY), data= brd)
+summary(frail2)
 ```
 
 Interestingly, the variance of the random effect is not very high. This is opposite to what Gordon found in the 2006 paper. Did I do this correctly? This is really bizzare. The analysis of deviance tells me that the year Cox PH model has the largest reduction in the LL. Not sure what to make of this. Is it because I have 2016 included? What happens if I take that out? 
 
-```{r, echo=FALSE}
-dev.compare <- anova(cx1, cx2, cx3, test="Chisq")
-dev.compare
-```
-
-I don't know how Gordon estimated a model deviance, but I am unable to find anything that gives one number out in R like he reported in the paper. I can compute the analysis of deviance table and it shows me the LL when each term is added. When I compare the models with sex, age, and year, respectively, the lowest LL is for model 3. However, the AIC value is the highest out of the set of models and none of the coefficients for the 35 years are significant. I really don't know what to make of this. 
-
 I will have to talk to Gordon (and probably do a lot of searching for answers on my own) about this whole deviance business and how they got the reported values in their paper. I don't see any "deviance" term. Just the loglikelihoods and the reduction in those. Is this the same thing? 
 
+#### AFT frailty models 
 
 ```{r}
+AFT1 <- survreg(brd.ob ~ MinAgeFBr + frailty(FY, dist='gamma'),data = brd, dist = "weibull")
+summary(AFT1)
 
+AFT2 <- survreg(brd.ob ~ Sex + MinAgeFBr + frailty(FY, dist='gamma'), data=brd, dist = "weibull")
+summary(AFT2)
 ```
 
-
-
+I'm quite sure how to read this output. The reduction in loglikelihood is not all that great from the intercept only. I'm puzzled because it seems that cohort year or year of first breeding does not affect risk very much. 
