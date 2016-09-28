@@ -102,6 +102,7 @@ legend("topright", c("Females","Males"), col=c("darkblue","darkorange3"),
        lty = c(1,1),lwd=1)
 
 cox.null <- coxph(brd.ob ~ 1, data = brd)
+summary(cox.null)
 
 cx1 <- coxph(brd.ob ~ Sex, data = brd)
 summary(cx1)
@@ -140,7 +141,7 @@ anova(cx2,cx4)
 
 
 #Analysis of deviance table comparing first three Cox PH models 
-dev.compare <- anova(cx1, cx2, cx3, test="Chisq")
+dev.compare <- anova(cx1, cx2, cx3, cx4, cx5, cx6, test="Chisq")
 dev.compare
 
 dev2 <- anova(cx3,cx5,cx6)
@@ -149,11 +150,22 @@ dev2
 #Calculate residuals for Coxph fit 
 resd <- residuals(cx1, type="deviance", collapse=brd$ID)
 
-#Frailty models where year is a random effect 
+#Frailty models where cohort year is a random effect 
 frail1 <- coxme(brd.ob ~ MinAgeFBr + (1|FY), data = brd)
 summary(frail1)
 frail2 <- coxme(brd.ob ~ Sex + (1|FY), data= brd)
 summary(frail2)
+frailnull <- coxme(brd.ob ~ (1|FY), data= brd)
+
+## AFT frailty models 
+
+AFT1 <- survreg(brd.ob ~ MinAgeFBr + frailty(FY, dist='gamma'), 
+                       data = brd, dist = "weibull")
+summary(AFT1)
+
+AFT2 <- survreg(brd.ob ~ Sex + MinAgeFBr + frailty(FY, dist='gamma'),
+                data=brd, dist = "weibull")
+summary(AFT2)
 
 
 ####################################################################
@@ -212,7 +224,6 @@ colnames(scrub.terr)[2] <- "scrb.count"
 scr.ct <- rbind(scrub.terr, no.scr)
 
 
-scr.ct
 
 ########################################################################
 #Time since fire data
@@ -242,7 +253,7 @@ names(no.tsf1)
 
 #Keep only terryr and scrb.count
 vars3 <- c("TerrYr","tsf.count")
-no.tsf1 <- no.tsf1[vars3]
+no.tsf1 <- no.tsf1[,vars3]
 
 colnames(tsf.terr)[2] <- "tsf.count"
 
