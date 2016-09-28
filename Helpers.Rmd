@@ -93,3 +93,84 @@ plot(cox.zph(cph.sex))
 The plot shows the scaled residuals. We want to look at the solid black line to determine if the hazards are proportional or not. It looks like they are not, particularily at the end of the helper period where the effect of being male on hazard relative to females starts to diminish. 
 
 This data set includes birds who did not make it past the helping stage. I will add back in the birds that did become breeders and use censorship like I did for the yearlings. For the birds died as helpers, most of them are dead by age 2 (~20% of birds still alive). 
+
+## July 6 2016 
+
+The R code and text above this point were done last week on Friday, July 1. I was perplexed by the results but then I realized that I was only using birds who died as a helper, or were still alive as of this April. So, I thought I need to add in the birds who did make it to the breeder stage because those individuals did pass through the helper stage and thus should be included. 
+
+For all of the birds that died during the helper stage, I gave them a 1 for their censorship status. Birds who made it to become breeders or who are still alive in the helper stage today get a 0, meaning the event of death in the helper stage has not occured. Then, I repeated the same procedure of creating the survival object, KM estimate and plotting the curves for all birds then by sex. What I found was also surprising.
+
+Did I code censorship correctly? 
+
+Worth noting is that the 2015 juveniles are not included because they just transitioned in April of 2016 and that's when the time period ends. 
+
+```{r, echo=FALSE}
+bird.df <- read.csv("Erin_June_Birds.csv")
+
+colnames(bird.df)[8] <- "Days"
+bird.df["Yrs"] <- bird.df$Days/365.25
+
+## convert dates to date format
+bird.df$FldgDate <- as.Date(bird.df$FldgDate, format = "%m/%d/%Y")
+bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
+## Remove birds that died in the first year so I'm left with helpers and breeders
+bird.df <- subset(bird.df, bird.df$Yrs >= 1)
+
+brdr.df <- read.csv("Erin_June_KA_Breeders.csv")
+colnames(brdr.df)[8] <- "Days"
+brdr.df["Yrs"] <- brdr.df$Days/365.25
+
+brdr.df$FldgDate <- as.Date(brdr.df$FldgDate, format = "%m/%d/%Y")
+brdr.df$LastObsDate <- as.Date(brdr.df$LastObsDate, format = "%m/%d/%Y")
+brdr.df$BrdrDate <- as.Date(brdr.df$BrdrDate, format = "%m/%d/%Y")
+
+## censorship - 1 = dead, 0 = alive
+brdr.df["Censor"] <- 1 
+brdr.df$Censor[which(brdr.df$LastObsDate =="2016-4-12")] <- 0
+
+
+brdr.df[11] <- NULL
+brdr.df[9] <- NULL
+
+#These birds did become breeders 
+brdr.df["Censor"] <- 0
+
+hlpr <- subset(bird.df, !(JayID %in% brdr.df$JayID))
+
+hlpr["Censor"] <- 1
+
+brhlp <- rbind(brdr.df, hlpr)
+
+#But give 0 to birds still alive today! 
+brhlp$Censor[which(brhlp$LastObsDate=="2016-4-12")] <- 0
+
+brhlp <- subset(brhlp, brhlp$Yrs > 0)
+
+#Change dates back to numeric 
+brhlp$FldgDate <- as.numeric(brhlp$FldgDate)
+brhlp$LastObsDate <- as.numeric(brhlp$LastObsDate)
+
+## Birds coded 0 are either still alive today or made it to the breeder stage
+## Birds coded 1 died after turning 1 year old and 
+
+##survival object for helpers
+brhl.ob <- Surv(brhlp$Yrs, brhlp$Censor, type= c('right'))
+km.fit <- survfit(brhl.ob ~ 1, conf.type = "log-log")
+kmplot <- plot(km.fit, xlab="Time (years)", log = "y", 
+            ylab = "Cumulative Survival (log)", main = "Helpers",
+            ylim = c(0.45,1), xlim = c(1,5))
+          
+
+km.sex <- survfit(brhl.ob ~ brhlp$Sex, conf.type = "log-log")
+sexplot <- plot(km.sex,col = c("navy","red"), xlab = "Time (years)", log = "y",
+                ylab = "Cumulative Survival", main = "Helpers",
+                ylim =c(0.40,1), xlim = c(1,5))
+legend("topright", c("Females","Males"), col=c("navy","red"),
+       lty = c(1,2),lwd=1)
+
+cph.sex <- coxph(brhl.ob ~ Sex, data = brhlp)
+summary(cph.sex)
+cox.zph(cph.sex)
+plot(cox.zph(cph.sex))
+```
+
