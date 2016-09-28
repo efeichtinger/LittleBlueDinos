@@ -9,4 +9,149 @@ output: html_document
 
 ### The data 
 
+These data consist of 2299 birds hatched at the ABS FSJ demography tract from 1981 to 2015 (N female = 1165, N male = 1134). These individuals are of known age and known parentage. Jay ID, sex, natal nest ID, number of hatchlings in nest, number of fledglings from nest and mass at day 11. I am starting from the date of fledge, so birds that did not survive to day 11 or fledge are not included. The period of interest is from date of fledge, which generally occurs in April through June, and until one year after (365.25 days). I want to use the April census date, but there are some coding syntax problems. I'm not sure it would make much of a difference because 365 days after fledge is about April anyway. The right censored birds are ones that are still living after 1 year from fledge.   
 
+The number of hatchlings in the nest refers to the number of birds that hatched in the nest. Likewise, the number of fledglings is the number of birds that successfully fledged from the nest. In other words, information on brood size and the number of siblings. The Mumme et al. 2015 paper was revealing for the first year of life for scrub-jays. They examined the nesting period (which I am not) as well as shorter stages within the first year.  
+
+Stage      | Mean  | SD
+---------- | ----- | ----
+Hatchlings | 3.28  | 0.78 
+Fledglings | 3.00  | 0.83
+
+As previously presented from the Kaplan-Meier estimate of survival, 46% of birds that fledged on the study tract between 1981 and 2015 were still alive at one year. A little more than half of all fledglings will disappear within the first year. There is a steeper decline in cumulative survival in the immediate days following fledging. 70% of the birds are still alive about 2.5 months after fledge. Around this time, the slope of the curve changes. Survival probability increases with age for first year birds. This makes sense as they are most vulnerable immediately after fledging from the nest. As they get older, they are able to fly and are slightly less vulnerable to predators. Finally, there is no difference (at least not detectable) between males and females in survival probability. I didn't expect that there would be in this stage/age class. Males and females act more or less the same as fledglings. One thing to note is that the KM curves for males and females overlap until the very end of the period, about a month before the end of the first year stage (becoming one year old). At this time, the female curve departs from the male curve with a slightly lower cumulative survival for females as they turn 1 year old.  
+
+### Cox Proportional Hazards models
+
+After the exploratory data analysis with the KM estimates of survival, I fit Cox proportional hazards models to the data. 
+
+```{r}
+## Cox PH Models
+cox.intercept <- coxph(yrlg.ob ~ 1, data = yrlg.df)
+cox.intercept
+
+```
+
+The null log likelihood is -9196.12. This is important to estimate so I can look at the change in LL when adding predictors to the model. 
+
+```{r}
+#Model 1 with sex as only predictor
+cox.sex <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
+summary(cox.sex)
+#Check PH assumption
+cox.zph(cox.sex)
+plot(cox.zph(cox.sex))
+```
+
+As expected, sex does not add much information to the model (I think that's a correct way to say that...?). The coefficient estimate for sex is not significant. From the likelihood ratio test it seems that this model is not very good at describing the data. So, as far as we can tell, mortality risk is not distinguishably different between males and females during the first year. It appears that the hazards are not proportional over time so I'm not really sure what to make of that.  
+
+The next model has the number of hatchlings in the nest as a predictor. 
+
+```{r}
+#Model 2 with number of hatchlings in nest 
+cox.hatch <- coxph(yrlg.ob ~ HatchNum, data = yrlg.df)
+summary(cox.hatch)
+#Check PH assumption
+cox.zph(cox.hatch)
+plot(cox.zph(cox.hatch))
+```
+
+The number of hatchlings has very little effect on mortality risk for the entire first year period. I think it could have an effect in the immediate period following fledging but I think the effect diminishes over time for the ones that survive. As in, it helped them survive initially but once they made it to a certain point, other things influence risk of mortality. The hazards are proportional as indicated by the residual plot with a straight line at zero.  
+
+Next up, number of fledglings from the nest as a predictor 
+
+```{r}
+#Model 3 with number of fledglings from nest 
+cox.flg <- coxph(yrlg.ob ~ FldgNum, data= yrlg.df)
+summary(cox.flg)
+#Check PH assumption
+#cox.zph(cox.flg)
+#plot(cox.zph(cox.flg))
+```
+
+There is a very slight increase in hazard as the number of fledglings increases but is only about 4%. The likelihood tests indicate that this is not a very good fit to the data.  
+
+Now, I fit a model with day 11 mass as a predictor. 
+
+```{r}
+cox.mass <- coxph(yrlg.ob ~ Weight, data = yrlg.df)
+summary(cox.mass)
+#Check PH assumption
+#cox.zph(cox.mass)
+#plot(cox.zph(cox.mass))
+```
+
+The coefficient estimate for day 11 mass is significant but the reduction in risk for being bigger is not all that much ~ 2%. 
+
+ 
+```{r}
+#Model 5 with cohort year as predictor - not the best way to do this
+cox.cohort <- coxph(yrlg.ob ~ Cohort, data = yrlg.df)
+
+
+cox.mult <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight, 
+                  data = yrlg.df)
+summary(cox.mult)
+cox.mult$loglik
+cox.cohort$loglik
+```
+
+The -LL is reduced from -9186 to 8972. So far, the model with cohort year as a predictor is the best fit from the models fit. But, there is still unexplained variation and frailty models are better for estimating the cohort variance. 
+
+However, these Cox PH models do tell us that cohort year alone is a better fit to the data than the model with all other predictors (sex, hatch #, fledge # and day 11 mass). It's not all that surprising that year would have an effect on mortality risk for birds in their first year. 
+
+### Frailty models 
+
+I fit Cox mixed effect models, which from what I understand are the same thing as frailty models. First, I looked at cohort year as the random effect then I used natal nest ID as the random effect. For the fixed effects, I started with hatch and fledge number separtely, but these models gave similar estimates as the model with just the intercept as the fixed effect. Then, I used day 11 mass as the fixed effect. 
+
+```{r}
+# Block 3 - frailty models, mixed effects Cox models 
+mm.int <- coxme(yrlg.ob ~ 1 + (1|Cohort), data = yrlg.df)
+mm.int
+#Mixed effects cox model with year as random effect
+#First model - nest size fixed effect 
+mm1 <- coxme(yrlg.ob ~ FldgNum + (1|Cohort), data = yrlg.df)
+mm1
+#Natal nest as random effect, does this make sense with clutch size as fixed?
+mm2 <- coxme(yrlg.ob ~ FldgNum + (1|NatalNest), data = yrlg.df)
+mm2
+```
+
+
+```{r}
+#Day 11 mass as fixed effect
+mm3 <- coxme(yrlg.ob ~ Weight + (1|Cohort), data = yrlg.df)
+mm3
+```
+
+The variance for the random effect is large, as I would expect. Day 11 mass as the fixed effect provides a better fit than either hatch or fledge number. 
+
+```{r}
+mm4 <- coxme(yrlg.ob ~ Weight + (1|NatalNest), data = yrlg.df)
+mm4
+```
+
+The variance for natal nest is large as well. The -LL decreased more with this random effect than the model with mass and cohort. However, I'm not sure that I can make that comparison.  
+
+I also fit AFT frality models but I'm less certain on how to interpret the output here and which approach is "better" (Coxme or AFT frailty). 
+
+```{r}
+AFT.mass <- survreg(yrlg.ob ~ Weight + frailty(Cohort, dist='gamma'),
+                    data = yrlg.df, dist ="weibull")
+summary(AFT.mass)
+
+#Mass as fixed, natal nest as the frailty term
+AFT.mnest <- survreg(yrlg.ob ~ Weight + frailty(NatalNest, dist='gamma'),
+                     data=yrlg.df, dist="weibull")
+summary(AFT.mnest)
+```
+
+I think the output tells us that the AFT frailty model with cohort is a better fit than the one with natal nest as the frailty term.  
+
+You can find the variance of the random term in the list that comes out of str(model). For the AFT frailty model with mass as fixed effect and frailty term cohort, the variance is 2.51. The variance for the random term (natal nest ID) for the second AFT frailty model is 53-09. Ummmmmmm......? Let's have a discussion about interpreting the AFT models and the difference in the scales of the variances between the Coxme models and AFT frailty models. 
+### Summary so far
+
+Based on the models I have fit, it seems that for first year birds, risk of mortality is minimally influenced by sex, the number of hatchlings and fledglings from the natal nest but risk is slightly influenced by day 11 mass, where larger birds have a reduced risk of dying (but it's not much even though the estimated coefficient for this term was significant). Cohort year and the identity of the natal nest seem to be the most important predictors of risk of dying for birds in their first year. The estimated variances for the random term in the coxme models (cohort and natal nest) are large. The variance for cohort is 0.820 and for natal nest it is 0.944 (day 11 mass was the fixed term in these models).  
+
+### Next steps
+
+The next step is to fit models with group size, amount of oak scrub and patches in the 1-9 tsf window (territory quality proxies) as predictors and investigate potential interactions among those three variables. I have all of these data ready to go. All I need to do is create a new variable in the dataframe containing info on hatch year birds called "terryear" so I can match the veg, fire and group size data to each bird. I plan to do this via string functions in R. Finally, the last piece of the puzzle here is to use the pedigree. 
