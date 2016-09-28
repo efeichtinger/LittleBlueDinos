@@ -114,6 +114,8 @@ legend("topright", c("Females","Males"), col=c("navy","red"),
 # Block 2 - fit Cox PH and AFT models 
 
 ## Cox PH Models
+cox.intercept <- coxph(yrlg.ob ~ 1, data = yrlg.df)
+cox.intercept
 
 #Model 1 with sex as only predictor
 cox.sex <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
@@ -148,15 +150,24 @@ plot(cox.zph(cox.mass))
 
 #Model 5 with cohort year as predictor - not the best way to do this
 cox.cohort <- coxph(yrlg.ob ~ Cohort, data = yrlg.df)
+cox.cohort$loglik
+
 #Model Loglik converged before variable 6. beta may be infinite
 #So the beta estimates are not reliable but it does show first year surv
 #is influenced by year, almost each year coefficient has p < 0.05 
 #But I think frailty models will be better here for this 
 
-##full model why not
-cox.full <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight + Cohort, 
+##Model without cohort because it is not the best way to do it 
+cox.full <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight, 
                   data = yrlg.df)
+summary(cox.full)
+cox.full$loglik
 anova(cox.full)
+
+cox.full2 <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight + Cohort, 
+                   data = yrlg.df)
+#summary(cox.full2)
+cox.full2$loglik
 
 extractAIC(cox.sex)
 extractAIC(cox.mass)
@@ -164,6 +175,7 @@ extractAIC(cox.hatch)
 extractAIC(cox.flg)
 extractAIC(cox.cohort)
 extractAIC(cox.full)
+extractAIC(cox.full2)
 
 #best of these simple models is the cohort one according to AIC 
 
@@ -214,7 +226,8 @@ extractAIC(cx.yrl7)
 ########################################################################
 
 # Block 3 - frailty models, mixed effects Cox models 
-
+mm.int <- coxme(yrlg.ob ~ 1 + (1|Cohort), data = yrlg.df)
+mm.int
 
 #Mixed effects cox model with year as random effect
 #First model - nest size fixed effect 
@@ -224,6 +237,14 @@ mm1
 #Natal nest as random effect, does this make sense with clutch size as fixed?
 mm2 <- coxme(yrlg.ob ~ FldgNum + (1|NatalNest), data = yrlg.df)
 mm2
+
+#Day 11 mass as fixed effect
+mm3 <- coxme(yrlg.ob ~ Weight + (1|Cohort), data = yrlg.df)
+mm3
+
+mm4 <- coxme(yrlg.ob ~ Weight + (1|NatalNest), data = yrlg.df)
+mm4
+
 
 #Frailty models using functions in the survival package 
 f1 <- coxph(yrlg.ob ~ Sex + HatchNum + 
@@ -243,6 +264,17 @@ summary(AFT.weibull)
 AFT.int <- survreg(yrlg.ob ~ 1 + frailty(Cohort, dist='gamma'),
               data = yrlg.df, dist = "weibull")
 summary(AFT.int)
+
+#Mass and cohort as frailty
+AFT.mass <- survreg(yrlg.ob ~ Weight + frailty(Cohort, dist='gamma'),
+                    data = yrlg.df, dist ="weibull")
+summary(AFT.mass)
+
+
+#Mass as fixed, natal nest as the frailty term
+AFT.mnest <- survreg(yrlg.ob ~ Weight + frailty(NatalNest, dist='gamma'),
+                     data=yrlg.df, dist="weibull")
+summary(AFT.mnest)
 
 ########################################################################
 # Block 4 - Input of Vegetation, fire, and terr size data
@@ -283,3 +315,7 @@ colnames(tsf.terr) <- c("TerrYr", "FireCount")
 str(terr)
 terr.size <- terr
 
+## Need to add a terryear variable, can do this with string manipulation
+## With this, I can add group size, territory size (cells), cells of oak scrub
+## cells of tsf in 1-9 
+## The final piece is the pedigree 
