@@ -2,7 +2,7 @@
 title: "First Year Survival"
 author: "Erin Feichtinger"
 date: "September 13, 2016"
-output: html_document
+output: pdf_document
 ---
 
 # First year survival 1981 - 2015
@@ -23,6 +23,34 @@ As previously presented from the Kaplan-Meier estimate of survival, 46% of birds
 ### Cox Proportional Hazards models
 
 After the exploratory data analysis with the KM estimates of survival, I fit Cox proportional hazards models to the data. 
+```{r, echo=FALSE}
+library(survival)
+library(ggplot2)
+library(car)
+library(coxme)
+library(kinship2)
+library(SurvRegCensCov)
+library(parfm)
+library(plyr)
+
+bird.df <- read.csv("Erin_June_All_BirdsMass.csv")
+bird.df<- bird.df[!duplicated(bird.df),]
+bird.df <- bird.df[!is.na(bird.df$HatchNum),]
+colnames(bird.df)[8] <- "Days"
+bird.df["Yrs"] <- bird.df$Days/365.25
+bird.df$FldgDate <- as.Date(bird.df$FldgDate, format = "%m/%d/%Y")
+bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
+bird.df["Censor"] <- 1
+bird.df$Censor[which(bird.df$Yrs > 1)]<-0
+year <- as.POSIXlt(bird.df$FldgDate)$year+1900
+bird.df["Cohort"] <- year
+bird.df$Cohort <- as.factor(bird.df$Cohort)
+yrlg.df <- subset(bird.df, bird.df$Yrs > 0 & bird.df$Days > 0)
+yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
+yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
+yrlg.ob <- Surv(yrlg.df$Yrs, yrlg.df$Censor, type = c('right'))
+```
+
 
 ```{r}
 ## Cox PH Models
