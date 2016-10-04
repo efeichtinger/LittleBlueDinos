@@ -78,6 +78,10 @@ bird.df$Cohort <- as.factor(bird.df$Cohort)
 #subset to get rid of years less than 0
 yrlg.df <- subset(bird.df, bird.df$Yrs > 0 & bird.df$Days > 0)
 
+##problem with the 2015 cohort since my condition was to be still alive at
+##one year, however, the 2015 cohort 
+yrlg.df$Censor[which(yrlg.df$LastObsDate == "2016-04-12")] <- 0
+
 #change back to numeric for survival object 
 yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
 yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
