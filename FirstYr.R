@@ -82,6 +82,9 @@ yrlg.df <- subset(bird.df, bird.df$Yrs > 0 & bird.df$Days > 0)
 ##one year, however, the 2015 cohort 
 yrlg.df$Censor[which(yrlg.df$LastObsDate == "2016-04-12")] <- 0
 
+##Just to check out 2015 cohort for correctness 
+#cohort15 <- subset(yrlg.df, yrlg.df$Cohort == "2015")
+
 #change back to numeric for survival object 
 yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
 yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
@@ -120,10 +123,26 @@ fit.yr <- survfit(yrlg.ob ~ yrlg.df$Cohort)
 fit.yr
 p.yr <- plot(fit.yr, xlab = "Time", log= "y", xlim=c(0,1), ylim=c(0.1,1))
 
-#read in life table from the fit.yr
-life.table <- read.csv("LifeTable.csv")
+#Life table construction 
+deaths <- c(2,5,1,7,2,2,0,9,90,4,59,3,12,7,10,6,4,2,55,
+            38,33,59,28,67,60,74,30,98,39,91,122,15,47,72,49)
+inds <- fit.yr$n
+inds <- cbind(inds)
+deaths <- cbind(deaths)
+life.table <- data.frame(inds, deaths)
+colnames(life.table) <- c("Inds", "Deaths")
+life.table$Deaths <- as.numeric(life.table$Deaths)
+life.table$Inds <- as.numeric(life.table$Inds)
 
-ggplot(life.table, aes(x=Year, y=lx)) + geom_bar(stat="identity") +
+life.table["p"] <- 1-(life.table$Deaths/life.table$Inds)
+life.table$p <- round(life.table$p, 2)
+life.table["Cohort"] <- c("81","82","83","84","85","86","87",
+              "88","89","90","91","92","93","94","95","96",
+            "97","98","99","00","01","02","03","04","05",
+            "06","07","08","09","10","11","12","13","14",
+            "15")
+
+ggplot(life.table, aes(x=Cohort, y=p)) + geom_bar(stat="identity") 
 
 
 #########################################################################
