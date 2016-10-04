@@ -51,10 +51,11 @@ fsd <- sd(bird.df$FldgNum)
 
 hfmeans <- data.frame(hmean, fmean)
 sds <- c(hsd, fsd)
-mnsd <- rbind(sds, hfmeans)
+mnsd <- rbind(hfmeans, hsd)
 colnames(mnsd) <- c("Hatchlings","Fledglings")
 rownames(mnsd) <- c("mean","sd")
 
+mnsd
 
 
 ## Change column name to Days for days lived and add a year column
@@ -110,6 +111,17 @@ plot.sex <- plot(my.fit2, col = c("navy","red"),
 legend("topright", c("Females","Males"), col=c("navy","red"),
        lty = c(1,2),lwd=1)
 
+#Year to year estimates 
+fit.yr <- survfit(yrlg.ob ~ yrlg.df$Cohort)
+fit.yr
+p.yr <- plot(fit.yr, xlab = "Time", log= "y", xlim=c(0,1), ylim=c(0.1,1))
+
+#read in life table from the fit.yr
+life.table <- read.csv("LifeTable.csv")
+
+ggplot(life.table, aes(x=Year, y=lx)) + geom_bar(stat="identity") +
+
+
 #########################################################################
 
 # Block 2 - fit Cox PH and AFT models 
@@ -159,24 +171,33 @@ cox.cohort$loglik
 #But I think frailty models will be better here for this 
 
 ##Model without cohort because it is not the best way to do it 
-cox.full <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight, 
+cox.mult<- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight, 
                   data = yrlg.df)
+summary(cox.mult)
+cox.mult$loglik
+anova(cox.mult)
+anova(cox.mult, type=("II"))
+anova(cox.mult, type=("III"))
+
+cox.full <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight + Cohort, 
+                   data = yrlg.df)
 summary(cox.full)
 cox.full$loglik
-anova(cox.full)
 
-cox.full2 <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight + Cohort, 
-                   data = yrlg.df)
-#summary(cox.full2)
-cox.full2$loglik
+cox.mc <- coxph(yrlg.ob ~ Weight + Cohort, data = yrlg.df)
+cox.mc$loglik
+anova(cox.mc)
+
+anova(cox.full)
+anova(cox.cohort)
 
 extractAIC(cox.sex)
 extractAIC(cox.mass)
 extractAIC(cox.hatch)
 extractAIC(cox.flg)
 extractAIC(cox.cohort)
+extractAIC(cox.mult)
 extractAIC(cox.full)
-extractAIC(cox.full2)
 
 #best of these simple models is the cohort one according to AIC 
 
