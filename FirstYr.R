@@ -69,7 +69,7 @@ bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
 ## add column for censorship status, in survival package - 0=alive, 1=dead
 bird.df["Censor"] <- 1
 #Birds that are right censored (indicated by 0) are still alive after 1 year
-bird.df$Censor[which(bird.df$Yrs > 1)]<-0
+bird.df$Censor[which(bird.df$Yrs >= 1)]<-0
 
 year <- as.POSIXlt(bird.df$FldgDate)$year+1900
 bird.df["Cohort"] <- year
@@ -136,14 +136,44 @@ life.table$Inds <- as.numeric(life.table$Inds)
 
 life.table["p"] <- 1-(life.table$Deaths/life.table$Inds)
 life.table$p <- round(life.table$p, 2)
-life.table["Cohort"] <- c("81","82","83","84","85","86","87",
-              "88","89","90","91","92","93","94","95","96",
-            "97","98","99","00","01","02","03","04","05",
-            "06","07","08","09","10","11","12","13","14",
-            "15")
+life.table["Cohort"] <- c(1981,1982,1983,1984,1985,1986,1987,1988,1989,
+                  1990,1991,1992,1993,1994,1995,1996,1997,1998,1999,
+                  2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,
+                  2010,2011,2012,2013,2014,2015)
+life.table$Cohort <- as.factor(life.table$Cohort)
 
-ggplot(life.table, aes(x=Cohort, y=p)) + geom_bar(stat="identity") 
+##Fairly nice figures - change color later 
+p1 <- ggplot(life.table, aes(x=Cohort, y=p)) +
+ geom_bar(stat="identity", fill="black") +
+  theme(axis.text.x=element_blank(),
+        axis.title.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(x = "Cohort", y = "Proportion of Survivors")
 
+p2 <- ggplot(life.table, aes(x=Cohort, y=Inds))+ 
+  geom_bar(stat="identity", fill="gray47") +
+  theme(axis.text.x=element_text(angle=300,hjust=0, size=12)) +
+  theme(axis.ticks.x=element_blank()) +
+  labs(x = "Cohort", y= "Number of Fledglings Produced")
+
+grid.arrange(p1, p2)
+
+m.cumuls <- mean(life.table$p)
+var.cumuls <- var(life.table$p)
+sd.cumuls <- sd(life.table$p)
+
+
+m.cumuls
+var.cumuls
+sd.cumuls
+
+surv.stats <- cbind(m.cumuls,var.cumuls, sd.cumuls)
+colnames(surv.stats) <- c("Mean","Variance","Standard Deviation")
+
+surv.stats[,1:3] <- round(surv.stats[,1:3], 3)
+surv.stats
+
+range(life.table$p)
 
 #########################################################################
 
