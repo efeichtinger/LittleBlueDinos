@@ -25,16 +25,21 @@ aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
 
 ## This is the full data set with all known age birds 
 #bird.df <- read.csv("Erin_June_All_Birds.csv")
-bird.df <- read.csv("Erin_June_All_BirdsMass.csv")
+#bird.df <- read.csv("Erin_June_All_BirdsMass.csv")
+bird.df <- read.csv("Erin_Oct_FY.csv")
 bird.df<- bird.df[!duplicated(bird.df),]
 
+
 ## Finding number of NA's
-sum(is.na(bird.df$HatchNum))
+#sum(is.na(bird.df$HatchNum))
 
 ##Remove NA's for hatch number 
-bird.df <- bird.df[!is.na(bird.df$HatchNum),]
+#bird.df <- bird.df[!is.na(bird.df$HatchNum),]
 
 str(bird.df)
+
+
+################################################################################
 
 #Mean and sd number hatchlings
 mean(bird.df$HatchNum)
@@ -56,24 +61,33 @@ colnames(mnsd) <- c("Hatchlings","Fledglings")
 rownames(mnsd) <- c("mean","sd")
 
 mnsd
-
-
-## Change column name to Days for days lived and add a year column
-colnames(bird.df)[8] <- "Days"
-bird.df["Yrs"] <- bird.df$Days/365.25
+############################################################################
 
 ## convert dates to date format
 bird.df$FldgDate <- as.Date(bird.df$FldgDate, format = "%m/%d/%Y")
 bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
+
+bird.df$MeasDate <- as.Date(bird.df$MeasDate, format = "%m/%d/%Y")
+bird.df$HatchDate <- as.Date(bird.df$HatchDate, format = "%m/%d/%Y")
+bird.df["MeasDiff"] <- bird.df$MeasDate - bird.df$HatchDate
+
+bird.df["Days"] <- bird.df$LastObsDate - bird.df$FldgDate
+bird.df["Yrs"] <- bird.df$Days/365.25
+bird.df$Days <- as.numeric(bird.df$Days)
+bird.df$Yrs <- as.numeric(bird.df$Yrs)
+bird.df$Days <- round(bird.df$Days, digits = 2)
+bird.df$Yrs <- round(bird.df$Yrs, digits = 2)
+
+bird.df <- subset(bird.df, bird.df$MeasDiff == 11)
 
 ## add column for censorship status, in survival package - 0=alive, 1=dead
 bird.df["Censor"] <- 1
 #Birds that are right censored (indicated by 0) are still alive after 1 year
 bird.df$Censor[which(bird.df$Yrs >= 1)]<-0
 
-year <- as.POSIXlt(bird.df$FldgDate)$year+1900
-bird.df["Cohort"] <- year
-bird.df$Cohort <- as.factor(bird.df$Cohort)
+#year <- as.POSIXlt(bird.df$FldgDate)$year+1900
+#bird.df["Cohort"] <- year
+#bird.df$Cohort <- as.factor(bird.df$Cohort)
 
 #subset to get rid of years less than 0
 yrlg.df <- subset(bird.df, bird.df$Yrs > 0 & bird.df$Days > 0)
@@ -88,6 +102,8 @@ yrlg.df$Censor[which(yrlg.df$LastObsDate == "2016-04-12")] <- 0
 #change back to numeric for survival object 
 yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
 yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
+
+yrlg.df$NestYear <- as.factor(yrlg.df$NestYear)
 
 #survival object 
 yrlg.ob <- Surv(yrlg.df$Yrs, yrlg.df$Censor, type = c('right'))
@@ -119,7 +135,7 @@ legend("topright", c("Females","Males"), col=c("navy","red"),
        lty = c(1,2),lwd=1)
 
 #Year to year estimates 
-fit.yr <- survfit(yrlg.ob ~ yrlg.df$Cohort)
+fit.yr <- survfit(yrlg.ob ~ yrlg.df$NestYear)
 fit.yr
 p.yr <- plot(fit.yr, xlab = "Time", log= "y", xlim=c(0,1), ylim=c(0.1,1))
 
@@ -215,7 +231,7 @@ cox.zph(cox.mass)
 plot(cox.zph(cox.mass))
 
 #Model 5 with cohort year as predictor - not the best way to do this
-cox.cohort <- coxph(yrlg.ob ~ Cohort, data = yrlg.df)
+cox.cohort <- coxph(yrlg.ob ~ NestYear, data = yrlg.df)
 cox.cohort$loglik
 
 #Model Loglik converged before variable 6. beta may be infinite
@@ -237,7 +253,7 @@ cox.full <- coxph(yrlg.ob ~ Sex + HatchNum + FldgNum + Weight + Cohort,
 summary(cox.full)
 cox.full$loglik
 
-cox.mc <- coxph(yrlg.ob ~ Weight + Cohort, data = yrlg.df)
+cox.mc <- coxph(yrlg.ob ~ Weight + NestYear, data = yrlg.df)
 cox.mc$loglik
 anova(cox.mc)
 
