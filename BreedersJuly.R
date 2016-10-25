@@ -252,8 +252,8 @@ names(tsf.terr)
 names(no.tsf1)
 
 #Keep only terryr and scrb.count
-vars3 <- c("TerrYr","tsf.count")
-no.tsf1 <- no.tsf1[,vars3]
+no.tsf1 <- no.tsf1[,c(1,8)]
+colnames(no.tsf1)[1] <- "TerrYr"
 
 colnames(tsf.terr)[2] <- "tsf.count"
 
