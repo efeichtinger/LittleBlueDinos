@@ -54,6 +54,26 @@ brd <- subset(brd, brd$FY >= "1981")
 brd$FY <- as.factor(brd$FY)
 
 
+
+males <- subset(brd, Sex == "M")
+females <- subset(brd, Sex == "F")
+mean(males$Yrs)
+sd(males$Yrs)
+mean(females$Yrs)
+sd(females$Yrs)
+
+cat("No. of Known Age Birds = ", nrow(brd[brd$AgeKnown == "Y", ]))
+cat("No. of Unknown Age Birds = ", nrow(brd[brd$AgeKnown == "N", ]))
+
+cat("No. of Females = ", nrow(brd[brd$Sex == "F", ]))
+cat("No. of Males = ", nrow(brd[brd$Sex == "M", ]))
+
+cat("No. of unknown age females = ", nrow(females[females$AgeKnown == "N", ]))
+cat("No. of unknown age males = ", nrow(males[males$AgeKnown == "N", ]))
+
+cat("No. of known age females = ", nrow(females[females$AgeKnown == "Y", ]))
+cat("No. of known age males = ", nrow(males[males$AgeKnown == "Y", ]))
+
 #Change dates back to numeric for surv object 
 brd$Fbreed <- as.numeric(brd$Fbreed)
 brd$LastObsDate <- as.numeric(brd$LastObsDate)
@@ -78,15 +98,61 @@ sd(males$Yrs)
 mean(females$Yrs)
 sd(females$Yrs)
 
+mean(males$MinAgeFBr)
+sd(males$MinAgeFBr)
+
+mean(females$MinAgeFBr)
+sd(females$MinAgeFBr)
+
 #mean age at first breeding 
 mean(males$MinAgeFBr)
 sd(males$MinAgeFBr)
 mean(females$MinAgeFBr)
 sd(females$MinAgeFBr)
 
+ggplot(brd, aes(MinAgeFBr, fill = Sex)) +
+  geom_histogram(binwidth = 0.2) +
+  xlab("Minimum Age at First Breeding") +
+  ylab("Frequency of Individuals") +
+  labs(title = "1981 to 2016")
+
+ggplot(brd, aes(MinAgeFBr, fill = Sex)) +
+  geom_bar(position="dodge") +
+  xlab("Minimum Age at First Breeding") +
+  ylab("Frequency") +
+  labs(title = "Distribution of Ages at First Breeding")
+
+
+#qplot(Yrs, data=brd, geom="histogram")
+#Histogram of breeding life span, color by sex
+ggplot(brd, aes(Yrs, fill = Sex)) +
+  geom_histogram(binwidth = 0.08) +
+  xlab("Number of Years Bred") +
+  ylab("Frequency of Individuals") + 
+  labs(title = "1981 to 2016")
+
+ggplot(brd, aes(Yrs, fill = Sex)) +
+  geom_bar(position="dodge")
+
+ggplot(males, aes(Yrs)) + 
+  geom_histogram(binwidth = 0.1) +
+  xlab("Number of Years Bred") +
+  ylab("Frequency of Individuals") +
+  labs(title = "Males") 
+
+ggplot(females, aes(Yrs)) + 
+  geom_histogram(binwidth = 0.1) +
+  xlab("Number of Years Bred") +
+  ylab("Frequency of Individuals") +
+  labs(title = "Females")
 
 brd.ob <- Surv(brd$Yrs, brd$Censor,type= c('right'))
 brd.fit <- survfit(brd.ob ~ 1, conf.type = "log-log")
+brd.fit
+
+year.fit <- survfit(brd.ob ~ brd$FY, conf.type="log-log")
+year.fit
+plot(year.fit, log="y")
 
 # adjust x axis it's breeding span 
 kmplot <- plot(brd.fit, xlab="Breeding time span (years)", log = "y", 
@@ -94,12 +160,16 @@ kmplot <- plot(brd.fit, xlab="Breeding time span (years)", log = "y",
                ylim = c(0.01,1), xlim = c(0,15))
 
 brd.sex <- survfit(brd.ob ~ brd$Sex, conf.type="log-log")
-sxplot <- plot(brd.sex, col = c("darkblue","darkorange3"), 
+sxplot <- plot(brd.sex, conf.int=TRUE, col = c("darkblue","darkorange3"), 
                xlab = "Breeding time span (years)", log="y", 
                ylab = "Cumulative Survival (log)", main = "Breeders",
                ylim = c(0.01,1), xlim = c(0,15))
 legend("topright", c("Females","Males"), col=c("darkblue","darkorange3"),
        lty = c(1,1),lwd=1)
+
+yrplot <- plot(year.fit, xlab ="Breeding time span (years)", log = "y",
+               ylab = "Cumulative Survival (log)", main = "Breeders", 
+               ylim = c(0.02,1), xlim = c(0,15))
 
 cox.null <- coxph(brd.ob ~ 1, data = brd)
 summary(cox.null)
@@ -108,17 +178,23 @@ cx1 <- coxph(brd.ob ~ Sex, data = brd)
 summary(cx1)
 cox.zph(cx1)
 plot(cox.zph(cx1))
+anova(cx1)
 
 cx2 <- coxph(brd.ob ~ MinAgeFBr, data = brd)
 summary(cx2)
 cox.zph(cx2)
 plot(cox.zph(cx2))
+anova(cx2)
 
 cx3 <- coxph(brd.ob ~ FY, data = brd)
+anova(cx3)
 cx4 <- coxph(brd.ob ~ Sex + MinAgeFBr, data=brd)
+anova(cx4)
 
 cx5 <- coxph(brd.ob ~ Sex + MinAgeFBr + FY, data=brd)
+anova(cx5)
 cx6 <- coxph(brd.ob ~ Sex + MinAgeFBr + FY + Sex*MinAgeFBr, data = brd)
+anova(cx6)
 
 
 extractAIC(cx1)
@@ -294,6 +370,19 @@ brd.allyrs <- read.csv("breeders_allyears.csv")
 colnames(hlp.byterr)[1] <- "NestYear"
 colnames(brd.allyrs)[1] <- "JayID"
 
+#Change dates to dates and calculate time lived 
+
+brd.allyrs$BrdrDate <- as.Date(brd.allyrs$BrdrDate, format = "%m/%d/%Y")
+brd.allyrs$LastObsDate <- as.Date(brd.allyrs$LastObsDate,format = "%m/%d/%Y")
+
+brd.allyrs["Days"] <- brd.allyrs$LastObsDate - brd.allyrs$BrdrDate
+brd.allyrs$Days <- as.numeric(brd.allyrs$Days)
+brd.allyrs["Years"] <- brd.allyrs$Days/365.25
+
+#Add censorship column
+brd.allyrs["Censor"] <- 1
+brd.allyrs$Censor[which(brd.allyrs$LastObsDate =="2016-4-12")] <- 0
+
 all.brd <- merge(brd.allyrs, hlp.byterr)
 #Duplicate records for multiple nests
 #This seems to have worked = I checked a few jays to make sure matches
@@ -313,8 +402,19 @@ all <- merge(all.brd, terr.info)
 
 #brd <- brd[,c(1,2,8,7,6,3,4,5)]    #to rearrange cols
 names(all)
-all.info <- all[,c(2,15,5,6,8,9,10,7,3,1,14,16,17,19,18,20)]
+all.info <- all[,c(2,4,8,9,5,6,7,18,11,12,14,15,16,1,17,21,22,23,19,20)]
+names(all.info)
+colnames(all.info)[16] <- "OakScrub"
+colnames(all.info)[18] <- "TSF"
+
+#Change dates back to numeric for survival object
+
+all.info$BrdrDate <- as.numeric(all.info$BrdrDate)
+all.info$LastObsDate <- as.numeric(all.info$LastObsDate)
 
 #####################################################################
 
-# Block 4 - Models 
+# Block 4 - Time varying Models 
+
+
+#Covariates change value each year 
