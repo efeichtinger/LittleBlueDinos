@@ -39,11 +39,16 @@ bird.df$MeasDate <- as.Date(bird.df$MeasDate, format = "%m/%d/%Y")
 bird.df["Days"] <- bird.df$LastObsDate - bird.df$FldgDate
 bird.df["Years"] <- round(bird.df$Days/365.25, digits = 2)
 
+colnames(bird.df)[7] <- "Mass"
+
 str(bird.df)
 
 #Add censorship column, 1 if dead before 1 yr, 0 if yr > 1 or 4/12/12016
 bird.df["Censor"] <- 1
+
+#this is the line where I could change to April census + 1
 bird.df$Censor[which(bird.df$Years >= 1)]<-0
+
 yrlg.df <- subset(bird.df, bird.df$Years > 0 & bird.df$Days > 0)
 yrlg.df$Censor[which(yrlg.df$LastObsDate == "2016-04-12")] <- 0
 
@@ -90,8 +95,6 @@ qplot(Year, data=sex.ratios, geom="bar", weight=SexRatio,
   theme(axis.text.x=element_text(angle=300,hjust=0, size=12))
 
 
-
-
 #Change to numeric for survival object 
 yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
 yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
@@ -114,19 +117,40 @@ plot.yr <- plot(fit.yr,xlab = "Time (years)",
                 main = "Curves for each year 1999 - 2015")
 fit.yr
 
+###########################################################################
+prop <- c(51,36,30,56,23,65,55,71,28,96,39,72,113,11,41,65,48)
+
+years <- seq(as.Date("1999/1/1"), by = "year", length.out=17)
+yr <- as.numeric(format(years, "%Y"))
+year <- as.vector(yr)
+year <- cbind(year)
+
+life.table <- data.frame(fit.yr$n, prop)
+life.table["Year"] <- year
+colnames(life.table)[1] <- "N"
+colnames(life.table)[2] <- "Nsurv"
+colnames(life.table)[3] <- "Year"
+
+life.table["p"] <- life.table$Nsurv/life.table$N
+
+#Make a nice bar graph of p, proportion of survivors each year fledglings 
+ggplot(life.table, aes(year, p)) +
+  geom_bar(stat="identity")
+########################################################################
+
 #Sex -  actually looks alright, shows that the CI's for males and females 
 #overlapp
 sex.fit <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
-plot.sex <- plot(sex.fit, conf.int = FALSE,col = c("navy","red"), xlab = "Time (years)", log = "y",
+plot.sex <- plot(sex.fit, conf.int = FALSE,col = c("maroon2","blue3"), xlab = "Time (years)", log = "y",
                    ylim = c(0.4,1), xlim=c(0,1), ylab = "Cumulative Survival", 
                    main = "Fledge to 1yr, 1999 - 2015")
-legend("topright", c("Females","Males"), col=c("navy","red"),
+legend("topright", c("Females","Males"), col=c("maroon2","blue3"),
        lty = c(1,1),lwd=1)
 
-plot.sexci <- plot(sex.fit, conf.int = TRUE,col = c("navy","red"), xlab = "Time (years)", log = "y",
+plot.sexci <- plot(sex.fit, conf.int = TRUE,col = c("maroon2","blue3"), xlab = "Time (years)", log = "y",
                  ylim = c(0.4,1), xlim=c(0,1), ylab = "Cumulative Survival", 
                  main = "Fledge to 1yr, 1999 - 2015")
-legend("topright", c("Females","Males"), col=c("navy","red"),
+legend("topright", c("Females","Males"), col=c("maroon2","blue3"),
        lty = c(1,1),lwd=1)
 
 
@@ -160,15 +184,15 @@ cox.sex <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
 cox.sex
 anova(cox.sex)
 
-cox.mass <- coxph(yrlg.ob ~ Weight, data = yrlg.df)
+cox.mass <- coxph(yrlg.ob ~ Mass, data = yrlg.df)
 cox.mass
 anova(cox.mass)
 
-mass.sex <- coxph(yrlg.ob ~ Sex + Weight, data = yrlg.df)
+mass.sex <- coxph(yrlg.ob ~ Sex + Mass, data = yrlg.df)
 mass.sex
 anova(mass.sex)
 
-ms.sexint <- coxph(yrlg.ob ~ Sex + Weight + Sex:Weight, data = yrlg.df)
+ms.sexint <- coxph(yrlg.ob ~ Sex + Mass + Sex:Mass, data = yrlg.df)
 ms.sexint
 anova(ms.sexint)
 #lol this adds nothing to the model 
@@ -183,6 +207,7 @@ extractAIC(ms.sexint)
 
 flg.num <- coxph(yrlg.ob ~ FldgNum, data=yrlg.df)
 flg.num
+anova(flg.num)
 
 hatch.num <- coxph(yrlg.ob ~ HatchNum, data=yrlg.df)
 hatch.num
@@ -190,11 +215,11 @@ hatch.num
 fld.hatch <- coxph(yrlg.ob ~ HatchNum + FldgNum, data=yrlg.df)
 fld.hatch
 
-fhmass <- coxph(yrlg.ob ~ HatchNum + FldgNum + Weight, data=yrlg.df)
+fhmass <- coxph(yrlg.ob ~ HatchNum + FldgNum + Mass, data=yrlg.df)
 fhmass
 
 #Mass and flg num interaction
-mass.fl <- coxph(yrlg.ob ~ FldgNum + Weight + FldgNum:Weight, data = yrlg.df)
+mass.fl <- coxph(yrlg.ob ~ FldgNum + Mass + FldgNum:Mass, data = yrlg.df)
 mass.fl
 anova(mass.fl)
 
@@ -214,10 +239,10 @@ extractAIC(cox3)
 
 #### Mixed effects models
 #NestYear/Cohort Year 
-mm.year <- coxme(yrlg.ob ~ Weight + (1|NestYear), data = yrlg.df)
+mm.year <- coxme(yrlg.ob ~ Mass + (1|NestYear), data = yrlg.df)
 mm.year
 
-mm.nest <- coxme(yrlg.ob ~ Weight + (1|NatalNest), data = yrlg.df)
+mm.nest <- coxme(yrlg.ob ~ Mass + (1|NatalNest), data = yrlg.df)
 mm.nest
 anova(mm.year)
 anova(mm.nest)
@@ -385,7 +410,7 @@ anova(oak.tsf.size)
 
 #What about untransformed data for oak and terr size, interaction?
 oak.size <- coxph(new.ob ~ oakscrub + TerrSize + 
-              scrb.count:TerrSize, data = yrlg.df)
+              stdscr:TerrSize, data = yrlg.df)
 oak.size
 anova(oak.size)
 
@@ -435,3 +460,16 @@ otgfx <- coxph(new.ob ~ GroupSize + stdscr + stdsize + stdtsf +
                  stdscr:stdsize + stdtsf:stdsize, data= yrlg.df)
 otgfx
 anova(otgfx)
+
+
+
+###############################################################################
+
+pedAll<-pedigree(id=sample.ped$id, 
+                 dadid=sample.ped$father, momid=sample.ped$mother, 
+                 sex=sample.ped$sex, famid=sample.ped$ped)
+
+demog.ped <- read.csv("Erin_Ped_1999.csv")
+
+pedjays <- pedigree(id=demog.ped$Jays, dadid=demog.ped$MBreeder,
+                    momid=demog.ped$FBreeder, sex = demog.ped$Sex)
