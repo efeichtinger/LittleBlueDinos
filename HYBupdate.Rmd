@@ -2,7 +2,7 @@
 title: "Hatch Year Birds Update"
 author: "Erin Feichtinger"
 date: "October 13, 2016"
-output: html_document
+output: pdf_document
 ---
 
 # Hatch Year Birds 
@@ -13,7 +13,7 @@ I ran into a problem last week after graphing the number of survivors at 1 yr ol
 
 My previous estimates of the KM curves indicated that survival probability is not different between sexes for birds in their first year. The estimates were biased because of the biased sample from the 80's especially, where there was 100% survival (those birds survived to breeding to be sexed). However, I still think sex doesn't not have a detectable effect on survival and mortality risk of birds in their first year. Based on jay behavior and biology, a priori I don't expect behavioral differences based on sex for this stage that would lead to differential survival. In other words, sex is "negilible" compared to other things in explaning survival (like cohort year and mass).  
 
-So, with this in mind, I am going to analyze a subsample from 1999 - 2015 where all birds are sexed from the day 11 blood samples to see if there is an effect of sex, particularly an interaction of sex with something else. But, if I find with this subset that sex is not all that important, it is justifiable to use the data from 1981 to 2015.  
+So, with this in mind, I analyzed a subsample from 1999 - 2015 where all birds are sexed from the day 11 blood samples to see if there is an effect of sex, particularly an interaction of sex with something else. 
 
 ### Results of simple survival analyses during 1999-2015
 
@@ -23,6 +23,7 @@ library(ggplot2)
 library(car)
 library(coxme)
 library(plyr)
+library(corrplot)
 
 bird.df <- read.csv("Erin_1999_FY.csv")
 
@@ -34,35 +35,13 @@ bird.df["Censor"] <- 1
 bird.df$Censor[which(bird.df$Years >= 1)]<-0
 yrlg.df <- subset(bird.df, bird.df$Years > 0 & bird.df$Days > 0)
 yrlg.df$Censor[which(yrlg.df$LastObsDate == "2016-04-12")] <- 0
+colnames(yrlg.df)[8] <- "Mass"
 
 yrlg.df[,2] <- NULL
 
-cat("No. of Females = ", nrow(yrlg.df[yrlg.df$Sex == "F"]))
-cat("No. of Males = ", nrow(yrlg.df[yrlg.df$Sex == "M"]))
-
-DT <- data.table(yrlg.df)
-nums <-DT[, .N, by = list(NestYear, Sex)]
-fls <- subset(nums, Sex == "F")
-mls <- subset(nums, Sex == "M")
-all <- cbind(fls,mls)
-all[,4] <- NULL
-names(all)[3] <- "Females"
-names(all)[5] <- "Males"
-setkey(all, NestYear)
-ratio <- all$Females/all$Males
-col1 <- cbind(ratio)
-Year <- all$NestYear
-sex.ratios <- data.frame(Year,col1)
-colnames(sex.ratios) <- c("Year","SexRatio")
-
-
-qplot(Year, data=sex.ratios, geom="bar", weight=SexRatio,
-  ylab = "Ratio of Females to Males", xlab = "Year") +
-  theme(axis.text.x=element_text(angle=300,hjust=0, size=12))
-
 ```
 
-The sex ratios of females to males is near one for most years but there are some departures from that in a few years. Just a note that the total sample size for the whole period is N = 1571 with 792 females adn 779 males fledged on the study tract from 1999 - 2015. 
+The total sample size of fledglings is N = 1572, with N = 795 females and N = 777 males during 1999 - 2015. 
 
 ```{r, echo=FALSE}
 yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
@@ -85,24 +64,41 @@ log = "y", ylim = c(0.2, 1),xlim=c(0,1), ylab = "Cumulative Survival",
 main = "Curves for each year 1999 - 2015")
 ```
 
+The plot below shows the proportion of survivors at 1 yr between 1999 and 2015. 
+
+```{r, echo=FALSE}
+start <- as.numeric(fit.yr$n)
+deaths <- c(47,36,30,54,23,64,56,71,28,96,39,72,116,11,41,65,48)
+life.table <- cbind(start, deaths)
+life.table <- as.data.frame(life.table)
+life.table["p"] <- 1 - (round(life.table$deaths/life.table$start, digits = 3))
+life.table["Year"] <- c(1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009, 
+                      2010,2011,2012,2013,2014,2015)
+
+qplot(Year, data=life.table, geom="bar", weight=p,
+      ylab = "Proportion of survivors at 1 yr", xlab = "Year") +
+  theme(axis.text.x=element_text(angle=300,hjust=0, size=12))
+```
+
 Now, to the main question of interest: is survival different for males and females? I generated the curves for each sex. The first plot shows the lines for males and females without confidence intervals. 
+
 
 ```{r, echo=FALSE}
 sex.fit <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
-plot.sex <- plot(sex.fit, conf.int = FALSE,col = c("navy","red"), xlab = "Time (years)", log = "y",
+plot.sex <- plot(sex.fit, conf.int = FALSE,col = c("maroon2","blue3"), xlab = "Time (years)", log = "y",
                    ylim = c(0.4,1), xlim=c(0,1), ylab = "Cumulative Survival", 
                    main = "Fledge to 1yr, 1999 - 2015")
-legend("topright", c("Females","Males"), col=c("navy","red"),
+legend("topright", c("Females","Males"), col=c("maroon2","blue3"),
        lty = c(1,1),lwd=1)
 ```
 
 The lines are not on top of each other, however, I don't think there are substantial differences and this becomes more obvious when I add the confidence intervals. 
 
 ```{r, echo=FALSE}
-plot.sexci <- plot(sex.fit, conf.int = TRUE,col = c("navy","red"), xlab = "Time (years)", log = "y",
+plot.sexci <- plot(sex.fit, conf.int = TRUE,col = c("maroon2","blue3"), xlab = "Time (years)", log = "y",
                  ylim = c(0.4,1), xlim=c(0,1), ylab = "Cumulative Survival", 
                  main = "Fledge to 1yr, 1999 - 2015")
-legend("topright", c("Females","Males"), col=c("navy","red"),
+legend("topright", c("Females","Males"), col=c("maroon2","blue3"),
        lty = c(1,1),lwd=1)
 ```
 
@@ -119,20 +115,24 @@ From the output we can see that males have a reduced hazard relative to females,
 The next covariate I want to examine is mass at day 11. 
 
 ```{r}
-cox.mass <- coxph(yrlg.ob ~ Weight, data = yrlg.df)
+cox.mass <- coxph(yrlg.ob ~ Mass, data = yrlg.df)
 cox.mass
 anova(cox.mass)
 ```
 
+The sign of the coefficient is negative so mass negatively effects hazard (or positively effects survival). However, the reduction in deviance from the null -LL is not all that great but it is more than the coefficient for sex.  According to the estimate, there is a 2% reduction in mortality risk. 
 
 ```{r}
-mass.sex <- coxph(yrlg.ob ~ Sex + Weight, data = yrlg.df)
+mass.sex <- coxph(yrlg.ob ~ Sex + Mass, data = yrlg.df)
 mass.sex
 anova(mass.sex)
-ms.sexint <- coxph(yrlg.ob ~ Sex + Weight + Sex:Weight, data = yrlg.df)
+ms.sexint <- coxph(yrlg.ob ~ Sex + Mass + Sex:Mass, data = yrlg.df)
 ms.sexint
 anova(ms.sexint)
 ```
+
+From the model summary outputs and the analysis of deviance table, the only model with some support based on the reduction in the -LL is hazard as a function of mass. Here are the AIC values for each model. Notice that AIC is indistinguishable between the models with mass. The change in AIC from the model with sex as a predictor is about 10 units. 
+
 
 ```{r}
 extractAIC(cox.sex)
@@ -141,24 +141,26 @@ extractAIC(mass.sex)
 extractAIC(ms.sexint)
 ```
 
+The number of hatchlings and fledglings in the nest did not add much information to the model. From the analysis of deviance table, we see that day 11 mass is associated with the largest reduction in -LL of these covariates. Still, seems like we can get at more of this unmodeled variation in survival with other covariates. 
 
-Neither number of nestlings nor number of fledglings from the nest add much to the model. 
+When I add nest year/cohort year as a covariate, this term reducese the -LL by a few more units than day 11 mass (-6294.0 Null and -6281.4 year). Year is treated as a factor in a Cox PH model so I fit mixed effects Cox models with year as a random/frailty term. 
 
 ```{r}
 #### Mixed effects models
 #NestYear/Cohort Year 
-mm.year <- coxme(yrlg.ob ~ Weight + (1|NestYear), data = yrlg.df)
+mm.year <- coxme(yrlg.ob ~ Mass + (1|NestYear), data = yrlg.df)
 mm.year
-mm.nest <- coxme(yrlg.ob ~ Weight + (1|NatalNest), data = yrlg.df)
+mm.nest <- coxme(yrlg.ob ~ Mass + (1|NatalNest), data = yrlg.df)
 mm.nest
 anova(mm.year)
 anova(mm.nest)
 ```
 
-This is a little surprising actually. From the mixed effects model with year as the random term, the variance isn't all that large. However, in the model with the same fixed effect (day 11 mass), Natal Nest ID has a high variance. Greater reduction in deviance for the nest id model than the year model. I am going to build a model for year using the 1981 to 2015 data set. 
+From the mixed effects model with year as the random term, the variance isn't all that large. It's not ignorable, however. The frailty term is modeled as a random variable with a mean of 1, so we can interpret the standard deviation estimate relative to this. Natal Nest ID has a high variance. However, nest ID is nested within year so the estimate of the variance for this frailty term includes year. 
 
-So, this is a perfect segue into what's next. Covariates for territory quality including amount of oak scrub and amount of tsf patches in optimal window.  
+A useful comparison to the Cox PH model with just the fixed effect. This allows us to evaluate how much better the model fits with the random frailty terms. Recall the Cox PH model with day 11 mass only. The coefficient estimate is -0.20 or exp(coef) 0.980. The -LL is reduced by 8 units (-6294 and -6286.3). 
 
+The mixed effect model with day 11 mass as the fixed term and nestID (and year) seems to be the best fit of all models so far. There is a large variance in the frailty term for nestID.
 
 ```{r, echo=FALSE}
 dom.veg <- read.csv("dom_veg.csv")
@@ -218,34 +220,47 @@ yrlg.df["stdsize"] <- scale(yrlg.df$TerrSize, center= FALSE, scale = TRUE)
 yrlg.df["centsize"] <- scale(yrlg.df$TerrSize, center = TRUE, scale = FALSE)
 ```
 
-For the territory data, I successfully matched the data to each terryr so every record for a bird has the amount of oak scrub and amount of cells in optimal fire window. I centered and studentized the variables. I fit Cox models to all three variables for the oak scrub. The untransformed data and the centered data give similar answers. The estimates for the beta coefficient seem weird but everything else is identical in the model output. The model with the studentized data seems to make the most sense based on the beta estimates. 
+For the territory data, I successfully matched the data to each terryr so every record for a bird has the amount of oak scrub and amount of cells in optimal fire window. I centered and studentized the variables. I fit Cox models to all three variables for the oak scrub. The untransformed data and the centered data give similar answers. The estimates for the beta coefficient seem weird but everything else is identical in the model output. The model with the studentized data seems to make the most sense based on the beta estimates. Interpretation of coefficient estimates relative to the mean and standard deviation. 
 
+Here is the correlation plot for the covariates generated from the correlation matrix. 
 
-```{r}
-#Oak scrub
-#Untransformed 
+```{r, echo=FALSE}
+covars.no <- yrlg.df[,c(8,11,12,16,17,18,19,20)]
+corrs2 <- cor(covars.no, use="complete.obs")
+corrplot(corrs2, method="pie", type="lower")
+```
+
+I used the studentized covariates for fitting the models. The coefficients are interpreted in terms of the standard deviation. The estimates are very small when I use the untransformed data. First I fit a model with amount of oak scrub in the natal territory. 
+
+```{r, echo=FALSE}
 oak <- coxph(new.ob ~ scrb.count, data = yrlg.df)
-#Studentized
 oak.cx <- coxph(new.ob ~ stdscr, data = yrlg.df)
 oak.cx
-#Centered
-oak.cx2 <- coxph(new.ob ~ centscr, data = yrlg.df)
-oak.cx2
+anova(oak.cx)
 
-#TSF
-#Untransformed
-tsf.cx1 <- coxph(new.ob ~ tsf.count, data = yrlg.df)
-tsf.cx1
-#Studentized
+```
+
+Next, I fit a model with the amount of territory in the 1-9 time since fire window. 
+
+```{r}
 tsf.cx2 <- coxph(new.ob ~ stdtsf, data = yrlg.df)
 tsf.cx2
-#Centered
-tsf.cx3 <- coxph(new.ob ~ centtsf, data = yrlg.df)
-tsf.cx3
+anova(tsf.cx2)
+```
 
+Interestingly, fire does not seem to give a better fit than a model without it. Oak scrub improves the fit a little. 
 
+```{r, echo=FALSE}
+oak.size4 <- coxph(new.ob ~ stdscr + stdsize +stdtsf +stdscr:stdsize
+                   + stdtsf:stdsize, data= yrlg.df)
+oak.size4
+anova(oak.size4)
 
 ```
 
 
+I'm not sure what the positive sign on the coefficient for the interaction term between scrub and territory size means? Does this term even make sense? 
 
+Now that I've done all that, I did this for all years too. I wanted to know if the conclusions change. 
+
+Also, I think that we can identify the covariates to retain. Day 11 Mass, amount of Oak scrub, territory size, cohort year, and nest ID and possibly group size. The pedigree will be useful as well. 
