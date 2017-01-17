@@ -9,6 +9,7 @@ library(kinship2)
 library(SurvRegCensCov)
 library(parfm)
 library(plyr)
+library(stringr)
 
 #################################################################
 
@@ -180,16 +181,33 @@ cox.zph(cx1)
 plot(cox.zph(cx1))
 anova(cx1)
 
+#get cumulative hazards
+cumhaz <- basehaz(cx1)
+## is this correct? Females with a higher cumulative hazard
+plot(cumhaz$time, cumhaz$hazard, main = "Hazard Rates")
+lines(cumhaz$time, exp(0.94177)*cumhaz$hazard, col="blue")
+
+#plot survival function
+bslf <- survfit(cx1)
+plot(bslf, xlab = "Breeding span (years)", ylab = "Cumulative Survival")
+
 cx2 <- coxph(brd.ob ~ MinAgeFBr, data = brd)
 summary(cx2)
 cox.zph(cx2)
 plot(cox.zph(cx2))
 anova(cx2)
+bslf2 <- survfit(cx2)
+plot(bslf2, xlab = "Breeding span (years)", ylab = "Cumulative Survival")
 
 cx3 <- coxph(brd.ob ~ FY, data = brd)
 anova(cx3)
+bslf3 <- survfit(cx3)
+plot(bslf3, xlab = "Breeding span (years)", ylab = "Cumulative Survival")
+
 cx4 <- coxph(brd.ob ~ Sex + MinAgeFBr, data=brd)
 anova(cx4)
+bslf4 <- survfit(cx4)
+plot(bslf4, xlab = "Breeding span (years)", ylab = "Cumulative Survival")
 
 cx5 <- coxph(brd.ob ~ Sex + MinAgeFBr + FY, data=brd)
 anova(cx5)
@@ -225,6 +243,8 @@ dev2
 
 #Calculate residuals for Coxph fit 
 resd <- residuals(cx1, type="deviance", collapse=brd$ID)
+#Ask GF about model diagnostics 
+plot(resd)
 
 #Frailty models where cohort year is a random effect 
 frail1 <- coxme(brd.ob ~ MinAgeFBr + (1|FY), data = brd)
@@ -299,8 +319,6 @@ colnames(scrub.terr)[2] <- "scrb.count"
 #Six types of oak scrub, also included 19 terryrs with 0 cell count
 scr.ct <- rbind(scrub.terr, no.scr)
 
-
-
 ########################################################################
 #Time since fire data
 
@@ -309,7 +327,7 @@ tsf <- subset(tsf, InABS == TRUE)
 
 #TSF data
 #Create object for the numbers, same logic as with veg data
-keep2 <- c(1,2,3,4,5,6,7,8,9)
+keep2 <- c(2,3,4,5,6,7,8,9)
 firedf <- tsf[tsf$TSF_years %in% keep2, ]
 tsf.terr <- ddply(firedf, .(TERRYR), summarise, CellCount=sum(CellCount))
 colnames(tsf.terr) <- c("TerrYr", "FireCount")
@@ -335,6 +353,9 @@ colnames(tsf.terr)[2] <- "tsf.count"
 
 
 tsf.ct <- rbind(tsf.terr,no.tsf1)
+
+#Weighted mean of fire patches
+
 
 ##########################################################################
 
@@ -407,10 +428,58 @@ names(all.info)
 colnames(all.info)[16] <- "OakScrub"
 colnames(all.info)[18] <- "TSF"
 
+all.info$Help <- as.factor(all.info$Help)
+all.info$FirstYr <- as.factor(all.info$FirstYr)
+
+#######################################################################
+# read in csv files with fledge data 
+# males and females in separate files 
+
+femflg <- read.csv("Erin_Females_fledge_year.csv")
+malflg<- read.csv("Erin_Males_fledge_year.csv")
+
+str(femflg)
+str(malflg)
+
+# combine territory name with last two digits of year for TerrYr
+malflg["TerrYr"] <- paste(malflg$Terr, str_sub(malflg$NestYear, start= -2),
+                          sep ="")
+femflg["TerrYr"] <- paste(femflg$Terr, str_sub(femflg$NestYear, start = -2),
+                          sep="")
+
+#remove failed nests, have to look at who drops out to find years where 
+#birds truly had zero fledglings 
+
+#set blanks to NA's
+malflg[malflg==""] <- NA
+femflg[femflg==""] <- NA
+
+#Keep rows with a fledge date, so only includes birds with fledglings 
+#need some way to know who had zero fledglings 
+malflg <- subset(malflg, !malflg$FldgDate == "NA")
+femflg <- subset(femflg, !femflg$FldgDate == "NA")
+
+colnames(malflg)[1] <-"JayID"
+colnames(femflg)[1] <- "JayID"
+
+fldgs <- rbind(malflg, femflg)
+
+#Sum fledge number by terryear and bird 
+newdata <- ddply(fldgs, .(TerrYr, JayID), summarise, FldgNum = sum(FldgNum))
+
+all.new <- merge(all.info, newdata)
+str(all.new)
+
 #Change dates back to numeric for survival object
 
-all.info$BrdrDate <- as.numeric(all.info$BrdrDate)
-all.info$LastObsDate <- as.numeric(all.info$LastObsDate)
+all.new$BrdrDate <- as.numeric(all.new$BrdrDate)
+all.new$LastObsDate <- as.numeric(all.new$LastObsDate)
+
+#remove records with NA for lastobsdate and Jay ID 
+all.new <- subset(all.new, !all.new$JayID == "NA" & !all.new$LastObsDate == "NA")
+
+str(all.new)
+#Have to change the censorship indicators for each interval 
 
 #####################################################################
 
@@ -418,3 +487,21 @@ all.info$LastObsDate <- as.numeric(all.info$LastObsDate)
 
 
 #Covariates change value each year 
+
+#####################################################################
+#Example from 2014 J. Stat Software
+
+id <- c(1,2,3,4,5,6)
+time <- c(1,4,7,10,12,13)
+death <- c(1,0,1,1,0,1)
+age <- c(20,21,19,22,20,24)
+female <- c(0,1,0,1,0,1)
+
+SURV <- data.frame(id, time, death, age, female)
+cut.points <- unique(SURV$time[SURV$death ==1])
+SURV2 <- survSplit(Surv(time, death) ~ id, data = SURV , cut = cut.points, end = "time", start = "time0", event = "death")
+
+model.1 <- coxph(Surv(time, death) ~ female + age, data = SURV)
+#covariates
+covs <- data.frame(age = 21, female = 0)
+summary(survfit(model.1), newdata = covs, type = "aalen")
