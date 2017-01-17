@@ -24,6 +24,7 @@ aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
 
 #Problems yesterday so I just pulled out the birds from 1999 on
 #bird.df <- read.csv("Erin_1999_FY.csv")
+#all birds from 1981 on 
 bird.df <- read.csv("Erin_Oct_FY_mass_sex.csv")
 
 group.size <- read.csv("groupsize.csv")
@@ -183,14 +184,26 @@ qplot(Year, data=life.table, geom="bar", weight=p,
 cox.sex <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
 cox.sex
 anova(cox.sex)
+svvc <- survfit(cox.sex)
+plot(svvc, xlim = c(0,1), xlab = "Time (years)", ylab = "Cumulative Survival")
+
+cox.zph(cox.sex)
+plot(cox.zph(cox.sex))
+
+cumhaz1 <- basehaz(cox.sex)
+## is this correct? Females with a higher cumulative hazard
+plot(cumhaz1$time, cumhaz1$hazard, main = "Hazard Rates")
+
 
 cox.mass <- coxph(yrlg.ob ~ Mass, data = yrlg.df)
 cox.mass
 anova(cox.mass)
+plot(cox.zph(cox.mass))
 
 mass.sex <- coxph(yrlg.ob ~ Sex + Mass, data = yrlg.df)
 mass.sex
 anova(mass.sex)
+plot(cox.zph(mass.sex))
 
 ms.sexint <- coxph(yrlg.ob ~ Sex + Mass + Sex:Mass, data = yrlg.df)
 ms.sexint
