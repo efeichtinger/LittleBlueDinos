@@ -1,4 +1,4 @@
-# Hatch Year/First Year Birds 
+# Hatch Year/First Year Birds - subsample to test for sex effects 
 
 # Updated 10/14/2016
 # Source code from "FirstYr.R" 
@@ -63,7 +63,12 @@ yrlg.df <- subset(yrlg.df, yrlg.df$Day11 <= 13)
 
 #Data frame includes the birds from 1981 on but it needs to be filtered since
 #sex is included 
+##Subset - I kept the name to keep all model code as is
 yrlg.df <- subset(yrlg.df, yrlg.df$FldgDate > "1999-01-01")
+length(unique(yrlg.df$USFWBand))
+
+#1981 on
+#full.df <- yrlg.df # go to line 481
 
 ##year to year sex ratio 
 #this is some nifty code basic but useful
@@ -104,7 +109,7 @@ yrlg.df$Years <- as.numeric(yrlg.df$Years)
 yrlg.df$Days <- as.numeric(yrlg.df$Days)
 
 #Create survival object 
-yrlg.ob <- Surv(yrlg.df$Years, yrlg.df$Censor, type = c('right'))
+yrlg.ob <- Surv(yrlg.df$Days, yrlg.df$Censor, type = c('right'))
 my.fit <- survfit(yrlg.ob~1, conf.type = "log-log")
 
 plot.fit <- plot(my.fit, xlab = "Time (years)", conf.int=TRUE,
@@ -142,19 +147,201 @@ ggplot(life.table, aes(year, p)) +
 #Sex -  actually looks alright, shows that the CI's for males and females 
 #overlapp
 sex.fit <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
-plot.sex <- plot(sex.fit, conf.int = FALSE,col = c("maroon2","blue3"), xlab = "Time (years)", log = "y",
-                   ylim = c(0.4,1), xlim=c(0,1), ylab = "Cumulative Survival", 
-                   main = "Fledge to 1yr, 1999 - 2015")
+plot.sex <- plot(sex.fit, conf.int = TRUE,col = c("maroon2","blue3"), xlab = "Time (years)", log = "y",
+                   ylim = c(0.4,1), xlim=c(0,1), ylab = "Cumulative Survival")
 legend("topright", c("Females","Males"), col=c("maroon2","blue3"),
        lty = c(1,1),lwd=1)
 
-plot.sexci <- plot(sex.fit, conf.int = TRUE,col = c("maroon2","blue3"), xlab = "Time (years)", log = "y",
-                 ylim = c(0.4,1), xlim=c(0,1), ylab = "Cumulative Survival", 
-                 main = "Fledge to 1yr, 1999 - 2015")
-legend("topright", c("Females","Males"), col=c("maroon2","blue3"),
-       lty = c(1,1),lwd=1)
+plot.sexbw <- plot(sex.fit, conf.int = FALSE, col=c("black","darkgrey"),
+                  ylab = "Survival", xlab = "Time (years)", lty = c(5,1),
+                  lwd = 2, xlim = c(0,1), ylim = c(0.4,1))
+legend("topright", c("Females", "Males"), col=c("black","darkgrey"),
+       lty = c(5, 1), lwd = 2)
+
+# 3 7 2017 
+plot.sexci <- plot(sex.fit, conf.int = TRUE,col = c("black","darkgrey"), 
+          xlab = "Time (years)", log = "y",
+          lty = c(1,5), lwd = c(2,2), ylim = c(0.4,1), xlim=c(0,1), 
+          ylab = "Cumulative Survival")
+legend("topright", c("Females","Males"), col=c("black","darkgrey"),
+       lty = c(1,5),lwd=2)
 
 
+#### 3 7 2017 - use this plot or at least start here
+#### unless all of plots need to be made in ggplot2... 
+par(mfrow = c(1,2), mai = c(0.9, 0.8, 0.1, 0.2))
+
+all.fit <- plot(my.fit, xlab = "Time (Days)", ylab = "Cumulative Survival",conf.int=TRUE,
+                lwd = 2, ylim = c(0,1),xlim=c(0,365)) 
+
+plot.test <- plot(sex.fit, conf.in = TRUE,
+          col = c("black","black","black","gray50","gray50","gray50"),
+          lty = c(1,3,3,1,3,3), lwd = 2,
+          xlab = "Time (Days)", ylim = c(0,1), 
+          xlim = c(0,365))
+legend("topright", inset = 0.0, c("Females", "Males"), col = c("black", "gray50"), 
+       lty = c(1,1), lwd = 2, cex = 0.75)
+
+
+
+
+library(GGally)
+
+legend_title <- "Sex"
+hy.sex <- ggsurv(sex.fit, plot.cens = FALSE, CI = TRUE, 
+                 surv.col = c("green","black"),
+                 xlab = "Time (Years)",
+                 ylab = "Proportion Surviving") 
+hy.sex + xlim(c(0,1)) + ylim(c(0,1)) 
+
+names(sex.fit)
+
+hy.sex2 <- ggsurv(sex.fit)
+hy.sex2 + 
+  xlim(c(0,1)) + 
+  ylim(c(0,1)) + 
+  ggplot2::scale_color_discrete(
+    name = 'Sex',
+    breaks = c(1,2),
+    labels = c('Male', 'Female')
+  )
+
+###########################################################################
+ggsurv <- function(s, CI = 'def', plot.cens = T, surv.col = 'gg.def',
+                   cens.col = 'red', lty.est = 1, lty.ci = 2,
+                   cens.shape = 3, back.white = F, xlab = 'Time',
+                   ylab = 'Survival', main = ''){
+  
+  library(ggplot2)
+  strata <- ifelse(is.null(s$strata) ==T, 1, length(s$strata))
+  stopifnot(length(surv.col) == 1 | length(surv.col) == strata)
+  stopifnot(length(lty.est) == 1 | length(lty.est) == strata)
+  
+  ggsurv.s <- function(s, CI = 'def', plot.cens = T, surv.col = 'gg.def',
+                       cens.col = 'red', lty.est = 1, lty.ci = 2,
+                       cens.shape = 3, back.white = F, xlab = 'Time',
+                       ylab = 'Survival', main = ''){
+    
+    dat <- data.frame(time = c(0, s$time),
+                      surv = c(1, s$surv),
+                      up = c(1, s$upper),
+                      low = c(1, s$lower),
+                      cens = c(0, s$n.censor))
+    dat.cens <- subset(dat, cens != 0)
+    
+    col <- ifelse(surv.col == 'gg.def', 'black', surv.col)
+    
+    pl <- ggplot(dat, aes(x = time, y = surv)) +
+      xlab(xlab) + ylab(ylab) + ggtitle(main) +
+      geom_step(col = col, lty = lty.est)
+    
+    pl <- if(CI == T | CI == 'def') {
+      pl + geom_step(aes(y = up), color = col, lty = lty.ci) +
+        geom_step(aes(y = low), color = col, lty = lty.ci)
+    } else (pl)
+    
+    pl <- if(plot.cens == T & length(dat.cens) > 0){
+      pl + geom_point(data = dat.cens, aes(y = surv), shape = cens.shape,
+                      col = cens.col)
+    } else if (plot.cens == T & length(dat.cens) == 0){
+      stop ('There are no censored observations')
+    } else(pl)
+    
+    pl <- if(back.white == T) {pl + theme_bw()
+    } else (pl)
+    pl
+  }
+  
+  ggsurv.m <- function(s, CI = 'def', plot.cens = T, surv.col = 'gg.def',
+                       cens.col = 'red', lty.est = 1, lty.ci = 2,
+                       cens.shape = 3, back.white = F, xlab = 'Time',
+                       ylab = 'Survival', main = '') {
+    n <- s$strata
+    
+    groups <- factor(unlist(strsplit(names
+                                     (s$strata), '='))[seq(2, 2*strata, by = 2)])
+    gr.name <-  unlist(strsplit(names(s$strata), '='))[1]
+    gr.df <- vector('list', strata)
+    ind <- vector('list', strata)
+    n.ind <- c(0,n); n.ind <- cumsum(n.ind)
+    for(i in 1:strata) ind[[i]] <- (n.ind[i]+1):n.ind[i+1]
+    
+    for(i in 1:strata){
+      gr.df[[i]] <- data.frame(
+        time = c(0, s$time[ ind[[i]] ]),
+        surv = c(1, s$surv[ ind[[i]] ]),
+        up = c(1, s$upper[ ind[[i]] ]),
+        low = c(1, s$lower[ ind[[i]] ]),
+        cens = c(0, s$n.censor[ ind[[i]] ]),
+        group = rep(groups[i], n[i] + 1))
+    }
+    
+    dat <- do.call(rbind, gr.df)
+    dat.cens <- subset(dat, cens != 0)
+    
+    pl <- ggplot(dat, aes(x = time, y = surv, group = group)) +
+      xlab(xlab) + ylab(ylab) + ggtitle(main) +
+      geom_step(aes(col = group, lty = group))
+    
+    col <- if(length(surv.col == 1)){
+      scale_colour_manual(name = gr.name, values = rep(surv.col, strata))
+    } else{
+      scale_colour_manual(name = gr.name, values = surv.col)
+    }
+    
+    pl <- if(surv.col[1] != 'gg.def'){
+      pl + col
+    } else {pl + scale_colour_discrete(name = gr.name)}
+    
+    line <- if(length(lty.est) == 1){
+      scale_linetype_manual(name = gr.name, values = rep(lty.est, strata))
+    } else {scale_linetype_manual(name = gr.name, values = lty.est)}
+    
+    pl <- pl + line
+    
+    pl <- if(CI == T) {
+      if(length(surv.col) > 1 && length(lty.est) > 1){
+        stop('Either surv.col or lty.est should be of length 1 in order
+             to plot 95% CI with multiple strata')
+      }else if((length(surv.col) > 1 | surv.col == 'gg.def')[1]){
+        pl + geom_step(aes(y = up, color = group), lty = lty.ci) +
+          geom_step(aes(y = low, color = group), lty = lty.ci)
+      } else{pl +  geom_step(aes(y = up, lty = group), col = surv.col) +
+          geom_step(aes(y = low,lty = group), col = surv.col)}
+    } else {pl}
+    
+    
+    pl <- if(plot.cens == T & length(dat.cens) > 0){
+      pl + geom_point(data = dat.cens, aes(y = surv), shape = cens.shape,
+                      col = cens.col)
+    } else if (plot.cens == T & length(dat.cens) == 0){
+      stop ('There are no censored observations')
+    } else(pl)
+    
+    pl <- if(back.white == T) {pl + theme_bw()
+    } else (pl)
+    pl
+  }
+  pl <- if(strata == 1) {ggsurv.s(s, CI , plot.cens, surv.col ,
+                                  cens.col, lty.est, lty.ci,
+                                  cens.shape, back.white, xlab,
+                                  ylab, main)
+  } else {ggsurv.m(s, CI, plot.cens, surv.col ,
+                   cens.col, lty.est, lty.ci,
+                   cens.shape, back.white, xlab,
+                   ylab, main)}
+  pl
+}
+
+
+########################################################################
+##ggsurv function from the internet Tal Galili
+
+beep <- ggsurv(sex.fit)
+beep + xlim(0, 1) 
+
+# 3 7 2017 - make a nice plot with different line types for CI lines 
+# and lines for males and females 
 #without color 
 plot.sex2 <- plot(sex.fit, conf.int =TRUE, xlab= "Time (yrs)", 
               ylim = c(0.3,1), xlim = c(0,1), 
@@ -182,6 +369,7 @@ qplot(Year, data=life.table, geom="bar", weight=p,
 
 #Now some models 
 cox.sex <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
+summary(cox.sex)
 cox.sex
 anova(cox.sex)
 svvc <- survfit(cox.sex)
@@ -189,6 +377,20 @@ plot(svvc, xlim = c(0,1), xlab = "Time (years)", ylab = "Cumulative Survival")
 
 cox.zph(cox.sex)
 plot(cox.zph(cox.sex))
+
+#Weibull
+Wsex <- survreg(yrlg.ob ~ yrlg.df$Sex, dist = 'weibull')
+summary(Wsex)
+
+cumhaz <- basehaz(cox.sex)
+## is this correct? Females with a higher cumulative hazard
+plot(cumhaz$time, cumhaz$hazard, type = "l", lwd = 3, xlab = "Time", ylab = "Cumulative Hazard", xlim=c(0,2))
+lines(cumhaz$time, exp(0.90910)*cumhaz$hazard, col="blue", lwd = 3)
+
+yrlg.df["SexInd"] <- 0
+yrlg.df$SexInd[which(yrlg.df$Sex=="M")] <-1
+cox.sex2 <- coxph(yrlg.ob ~ SexInd, data=yrlg.df)
+sim1 <- coxsimLinear(cox.sex, b= "SexInd", qi="Relative Hazard", Xj=c(0,1))
 
 cumhaz1 <- basehaz(cox.sex)
 ## is this correct? Females with a higher cumulative hazard
@@ -249,6 +451,7 @@ extractAIC(cox.year)
 cox3 <- coxph(yrlg.ob ~ NestYear + Sex, data = yrlg.df)
 anova(cox3)
 extractAIC(cox3)
+anova(cox.year, cox3)
 
 #### Mixed effects models
 #NestYear/Cohort Year 
@@ -474,6 +677,8 @@ otgfx <- coxph(new.ob ~ GroupSize + stdscr + stdsize + stdtsf +
 otgfx
 anova(otgfx)
 
+#############################################################################
+str(full.df)
 
 
 ###############################################################################
