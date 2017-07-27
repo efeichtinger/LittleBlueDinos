@@ -4,6 +4,9 @@
 # HatchYear.R is code and analyses for the subsample of 1999-2015 when birds
 # were sexed using blood samples 
 
+#my_env = new.env(hash = TRUE, parent = .GlobalEnv)
+#saveRDS(my_env, file = "HYApril19.RData")
+
 library(survival)
 library(ggplot2)
 library(car)
@@ -51,9 +54,9 @@ colnames(hybrd)[7] <- "Mass"
 hybrd["Censor"] <- 1
 
 #this is the line where I could change to April census + 1
-hybrd$Censor[which(hybrd$Years >= 1)]<-0
+hybrd$Censor[which(hybrd$Days >= 365.25)]<-0
 
-yrlg.df <- subset(hybrd, hybrd$Years > 0 & hybrd$Days > 0)
+yrlg.df <- subset(hybrd, hybrd$Days > 0)
 yrlg.df$Censor[which(yrlg.df$LastObsDate == "2016-04-12")] <- 0
 
 #Jay ID not unique but the band number is 
@@ -61,7 +64,9 @@ yrlg.df$Censor[which(yrlg.df$LastObsDate == "2016-04-12")] <- 0
 
 yrlg.df["Expr1003"] <- NULL
 yrlg.df["Day11"] <- yrlg.df$MeasDate - yrlg.df$HatchDate
-yrlg.df <- subset(yrlg.df, yrlg.df$Day11 == 11)
+
+
+yrlg.df <- subset(yrlg.df, yrlg.df$Day11 > 10 & yrlg.df$Day11 <= 20)
 
 str(yrlg.df)
 
@@ -94,13 +99,44 @@ length(unique(yrlg.df1$USFWBand))
 yrlg.df1 <- subset(yrlg.df1, yrlg.df1$FldgDate <= "2015-12-31")
 length(unique(yrlg.df1$USFWBand))
 
+yrlg.df1 <- na.omit(yrlg.df1)
+
+#### April 8 2017 
+# Just now discovered a slight problem, birds were dropped due to the measurement filtering
+#N = 2492 now
+
+###################################################################
+####See if you can get census date in
+col.year <- cbind(as.character(yrlg.df1$FldgDate))
+
+## Year Month Date
+colnames(col.year) <- "FldgDate"
+col.year <- gsub("-","", col.year)
+col.april <- cbind(as.character(aprilD$CensusDate))
+col.april <- gsub("-","",col.april)
+colnames(col.april) <- "AprilDate"
+
+#Fledge years
+new.col <- substr(col.year, 1, 4)
+#April census years
+new.april <- substr(col.april, 1, 4)
+
+#Match FldgDate form new.col (year) to first 4 characters in col.april
+d$match <- map$c2[match(d$c1,map$c1)]
+
+new <- new.col[match(new.april, new.col)]
+new1 <- new.col[match(new.col, new.april)]
+new1 <- cbind(new.col[match(new.col, new.april)])
+
+test <- cbind(new.col, new1)
+
+##################################################################
 yrlg.df1$FldgDate <- as.numeric(yrlg.df1$FldgDate)
 yrlg.df1$LastObsDate <- as.numeric(yrlg.df1$LastObsDate)
 
 yrlg.df1$Years <- as.numeric(yrlg.df1$Years)
 yrlg.df1$Days <- as.numeric(yrlg.df1$Days)
 
-yrlg.df1 <- na.omit(yrlg.df1)
 
 str(yrlg.df1)
 
@@ -112,24 +148,352 @@ str(yrlg.df1)
 #yrlg.df1$HelpNum <- as.factor(yrlg.df1$HelpNum)
 
 length(unique(yrlg.df1$USFWBand))
-#2323
+
+## 6 12 2017 add density 
+#2492 now, updated April 8 2017
+
+# 6 15 2017 new df with density, don't overwirte yrlg.df1 bc 
+#it messes things up downstream 
+den.df <- merge(yrlg.df1, jay.den, by = ("Year"), all.x=TRUE)
+
+
 
 #basic survival object and KM plots
-hy.ob <- Surv(yrlg.df1$Years, yrlg.df1$Censor, type = c('right'))
+hy.ob <- Surv(yrlg.df1$Days, yrlg.df1$Censor, type = c('right'))
+hy.ob1 <- Surv(den.df$Days, den.df$Censor, type =c('right'))
 hy.fit <- survfit(hy.ob ~ 1, conf.type = "log-log")
+hy.fit1 <- survfit(hy.ob1 ~ 1, conf.type = "log-log")
 summary(hy.fit)
 hy.fit
 str(summary(hy.fit))
-plot(hy.fit$time, hy.fit$surv, xlim = c(0,1), type = "l")
+plot(hy.fit$time, hy.fit$surv, xlim = c(0,365), ylim = c(0,1), type = "l")
 lines(hy.fit$time, hy.fit$upper, lty = 2)
 lines(hy.fit$time, hy.fit$lower, lty = 2)
 
+
+
 yr.fit <- survfit(hy.ob ~ yrlg.df1$Year, conf.type="log-log")
+yr.fit1 <- survfit(hy.ob1 ~ den.df$Year, conf.type="log-log")
 yr.fit
 summary(yr.fit)
 str(summary(yr.fit))
-plot(yr.fit, log="y", xlim = c(0,1))
-plot(yr.fit$time, yr.fit$sur, xlim = c(0,1), type = "l")
+#plot(yr.fit, log="y", xlim = c(0,1))
+
+new11 <- coxph(hy.ob ~ Mass + Help, data = yrlg.df1)
+new1 <- coxph(hy.ob ~ Mass + Help + Year, data = yrlg.df1)
+new2 <- coxme(hy.ob ~ Mass + Help + (1|Year), data =yrlg.df1)
+new3 <- coxme(hy.ob ~ Mass + Help + (1|USFWBand) + (1|Year),
+              varlist=coxmeMlist(kins), data = yrlg.df1)
+
+#6 4 2017
+#Changed df to den.df, same as yrlg.df1 but with density 
+#messes things up downstream if I overwrite yrlg.df1
+yr.full <- coxph(hy.ob1 ~ Year, data = den.df)
+ym <- coxph(hy.ob1 ~ Mass + Year, data = den.df)
+summary(ym)
+mbb <- coxph(hy.ob1 ~ Mass + HatchNum, data = den.df)
+mbf <- coxph(hy.ob1 ~ Mass + FldgNum, data = den.df)
+mb <- coxph(hy.ob1 ~ Mass + HatchNum + FldgNum, data= den.df)
+extractAIC(mb)
+ymh <- coxph(hy.ob1 ~ Mass + Help + Year, data = den.df)
+ymhi <- coxph(hy.ob1 ~ Mass +  Year*Help, data = den.df)
+ymhii <- coxph(hy.ob1 ~ Mass + Help + Year + Year*Help, data = den.df)
+summary(ymhii)
+
+# 6 12 2017 density 
+dens <- coxph(hy.ob1 ~ Mass, data = den.df)
+dens1 <- coxph(hy.ob1 ~ Mass + Den, data = den.df)
+dens2 <- coxph(hy.ob1 ~ Mass + Den + Help , data = den.df)
+dens3 <- coxph(hy.ob1 ~ Mass + Den + Help + Year, data= den.df)
+extractAIC(dens)
+extractAIC(dens1)
+extractAIC(dens2)
+extractAIC(dens3)
+summary(dens1)
+
+myb <- coxph(hy.ob1 ~ Mass +Help + HatchNum + Year, data = den.df)
+mybd <- coxph(hy.ob1 ~ Mass + Den + Help + HatchNum + Year, data = den.df)
+myf <- coxph(hy.ob1 ~ Mass  + Help + FldgNum + Year, data = den.df)
+
+Cand.modelsE <- list()
+Cand.modelsE[[1]] <- dens1
+Cand.modelsE[[2]] <- dens2
+Cand.modelsE[[3]] <- dens3
+Cand.modelsE[[4]] <- ym
+Cand.modelsE[[5]] <- ymh
+Cand.modelsE[[6]] <- ymhii
+Cand.modelsE[[7]] <- myb
+Cand.modelsE[[8]] <- mybd
+ModnamesE <- paste("Model", 1:length(Cand.modelsE), sep="")
+tableE <- aictab(Cand.modelsE, ModnamesE, sort = TRUE, second.ord=FALSE)
+tableE
+
+extractAIC(myb)
+extractAIC(myf)
+extractAIC(ymh)
+extractAIC(ym)
+Cand.modelsB <- list()
+Cand.modelsB[[1]] <- mass.only
+Cand.modelsB[[2]] <- ym
+Cand.modelsB[[3]] <- ymh
+Cand.modelsB[[4]] <- myb
+Cand.modelsB[[5]] <- myf
+Cand.modelsB[[6]] <- desn2
+ModnamesB <- paste("Model", 1:length(Cand.modelsB), sep="")
+tableB <- aictab(Cand.modelsB, ModnamesB, sort = TRUE, second.ord=FALSE)
+tableB
+
+
+# 6 7 2017 Just to check estimates w/o year
+mass.only <- coxph(hy.ob ~ Mass, data = yrlg.df1)
+summary(mass.only)
+help.only <- coxph(hy.ob ~ Help, data = yrlg.df1)
+summary(help.only)
+helpn <- coxph(hy.ob ~ HelpNum, data = yrlg.df1)
+summary(helpn)
+mh <- coxph(hy.ob ~ Mass + Help, data = yrlg.df1)
+summary(mh)
+mhn <- coxph(hy.ob ~ Mass + HelpNum, data = yrlg.df1)
+summary(mhn)
+extractAIC(mh)
+extractAIC(mhn)
+#AIC same for either form of helper 
+
+extractAIC(mass.only)
+extractAIC(mh)
+extractAIC(mbb)
+extractAIC(mb)
+extractAIC(mbf)
+
+## June 21 - figures of coefficients
+#use den.df
+#hy.ob1
+
+## I didn't scale mass and helper number
+
+fig1 <- coxph(hy.ob1 ~ Mass + HelpNum, data = den.df)
+
+fig33.df <- data.frame(predict(fig1, newdata=transform(den.df,Mass=mean(Mass)),
+              type="risk", se.fit=TRUE))
+fig1.df <- data.frame(predict(fig1, newdata=den.df),
+                              type="risk", se.fit=TRUE)
+fig1.df$HelpNum <- den.df$HelpNum
+#fig1.df$Mass <- den.df$Mass
+pf1 <- with(fig1.df, data.frame(HelpNum, 
+                  hazard = fit, lwr = fit- 1.96*se.fit,
+                  upr = fit+ 1.96*se.fit))
+fig1A <- ggplot(pf1, aes(HelpNum, hazard)) +
+  geom_point() +
+  xlab("Number of Helpers") +
+  ylab("Predicted RelatiVe Risk") +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+  #geom_ribbon(data = pf1, aes(ymin=lwr, ymax=upr), alpha = 0.2) 
+fig1A
+
+tst <- data.frame(predict(fig1, type="risk", se.fit=TRUE))
+
+
+trts1 <- expand.grid(HelpNum = den.df$HelpNum, 
+                      Mass = mean(den.df$Mass))
+dat.temp <- trts1
+dat.temp$Risk <- predict(fig1, type='risk')
+
+
+
+#density
+fig2 <- coxph(hy.ob1 ~ Den, data = den.df)
+summary(fig2)
+fig2.df <- data.frame(predict(fig2, type="risk", se.fit=TRUE))
+fig2.df$Den <- den.df$Den
+pf2 <- with(fig2.df, data.frame(Den, hazard = fit, lwr = fit - 1.96*se.fit,
+                    upr = fit + 1.96*se.fit))
+
+fig2A <- ggplot(pf2, aes(Den, hazard)) + 
+  geom_line() +
+  xlab("Population Density") +
+  ylab("Predicted Relative Risk") + 
+  theme_bw() +
+  geom_hline(yintercept = 1.0, linetype = 2) +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  geom_ribbon(data = pf2, aes(ymin=lwr, ymax=upr), alpha = 0.2) 
+  
+fig2A
+
+
+Cand.modelsA <- list()
+Cand.modelsA[[1]] <- mass.only
+Cand.modelsA[[2]] <- mh
+Cand.modelsA[[3]] <- mbb
+Cand.modelsA[[4]] <- mb
+Cand.modelsA[[5]] <- mbf
+ModnamesA <- paste("Model", 1:length(Cand.modelsA), sep="")
+tableA <- aictab(Cand.modelsA, ModnamesA, sort = TRUE, second.ord=FALSE)
+tableA
+
+Cand.modelsC <- list()
+Cand.modelsC[[1]] <- mass.only
+Cand.modelsC[[2]] <- mh
+Cand.modelsC[[3]] <- mbb
+Cand.modelsC[[4]] <- mb
+Cand.modelsC[[5]] <- mbf
+Cand.modelsC[[6]] <- ym
+Cand.modelsC[[7]] <- ymh
+Cand.modelsC[[8]] <- myb
+Cand.modelsC[[9]] <- myf
+Cand.modelsC[[10]] <- ymhii
+ModnamesC <- paste("Model", 1:length(Cand.modelsC), sep="")
+tableC <- aictab(Cand.modelsC, ModnamesC, sort = TRUE, second.ord=FALSE)
+tableC
+
+
+#Cand.modsA <- list("Mass" = mass.only, "Mass + Helper" = mh, 
+     # "Mass + HN" = mbb, "Mass + HN + FN" = mb, "Mass + FN")
+#tableA <- aictab(Cand.modsA, sort = TRUE, second.ord=FALSE)
+
+summary(yr.full)
+summary(ym)
+summary(ymh)
+summary(ymhi)
+#summary(ymhii)
+
+extractAIC(yr.full)
+extractAIC(ym)
+extractAIC(ymh)
+extractAIC(ymhi)
+extractAIC(ymhii)
+
+library(AICcmodavg)
+Cand.models2 <- list()
+Cand.models2[[1]] <- yr.full
+Cand.models2[[2]] <- ym
+Cand.models2[[3]] <- ymh
+Cand.models2[[4]] <- ymhi
+Modnames2 <- paste("Model", 1:length(Cand.models2), sep="")
+#with second.ord=FALSE, will use AIC (not AICc)
+hymods2 <- aictab(Cand.models2, Modnames2, sort = TRUE, second.ord=FALSE)
+hymods2
+
+
+### Extract number of fledglings and number of events/deaths 
+no.flg <- yr.fit$n
+no.events <- c(29,24,35,54,20,26,30,23,39,9,51,13,35,
+                   55,34,41,70,22,45,33,32,42,28,64,60,
+                   73,30,91,38,71,106,15,49,72,50)
+start <- as.Date("1981-01-01")
+end <- as.Date("2015-12-31")
+years <- seq(start, end, "years")
+years1 <- substring(years, 1,4)
+kind.oflt <- data.frame(years1,no.flg, no.events)
+colnames(kind.oflt) <- c("Year","NumFldg", "NumDeaths")
+kind.oflt$d <- round(kind.oflt$NumDeaths/kind.oflt$NumFldg, digits = 2)
+kind.oflt$p <- 1 - kind.oflt$d
+kind.oflt$propend <- kind.oflt$p*100
+
+
+#### need # fledgs per breeding pair
+num.pairs <- read.csv("PairsByYearCount.csv")
+prs1981 <- subset(num.pairs, num.pairs$NestYear >= 1981)
+prs1981 <- subset(prs1981, prs1981$NestYear <= 2015)
+tmp.pairs <- cbind(kind.oflt, prs1981)
+tmp.pairs$MPP <- tmp.pairs$NumFldg/tmp.pairs$CountOfNestYear
+
+
+
+###Number of fledglings produced, looks decent 
+#Suppl. info
+inputs <- ggplot(tmp.pairs, aes(Year, MPP)) +
+  geom_bar(stat='identity', color = 'gray', fill='black', width = 0.9)
+inputs  +
+  scale_x_discrete(breaks = c("1981","1985","1990","1995","2000","2005",
+                              "2010","2015")) +
+  ylab("Mean Number of Fledglings") +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_y_continuous(expand=c(0,0), limits = c(0,2)) +
+  theme(axis.text.x = element_text(angle=30)) +
+  #geom_hline(yintercept = (median(kind.oflt$NumFldg))) +
+  theme(plot.margin = unit(c(1,1,1,1), "cm"))
+
+##Proportion alive each year 
+p.year <- ggplot(kind.oflt, aes(Year, p)) +
+  geom_bar(stat='identity', color = 'gray', fill='black', width = 0.9) +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_y_continuous(expand=c(0,0), limits = c(0,1)) + 
+  scale_x_discrete(breaks =c("1981","1985","1990","1995","2000","2005",
+                   "2010","2015")) +
+  theme(axis.text.x = element_text(angle=30)) +
+  ylab("Proportion of Cohort") +
+  geom_hline(yintercept = 0.4) +
+  theme(plot.margin = unit(c(1,1,1,1), "cm"))
+
+p.year
+
+
+library(GGally)
+#KM curve for all years 
+all.yrs <- ggsurv(yr.fit, plot.cens=FALSE, 
+                  back.white=TRUE) +
+xlim(0,365) +
+  ylim(0,1) +
+  theme(legend.position="none") +
+  ylab("Cumulative Survival") +
+  xlab("Time (Days)") + 
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+
+all.yrs
+
+all.yrs.bw <- ggsurv(yr.fit, plot.cens=FALSE, 
+                     back.white=TRUE, surv.col="black") +
+  xlim(0,365) +
+  ylim(0,1) +
+  theme(legend.position="none") +
+  ylab("Cumulative Survival") +
+  xlab("Time (Days)") +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+all.yrs.bw
+
+days.plot2 <- ggsurv(hy.fit, plot.cens = FALSE, lty.est = 1, lty.ci =2, 
+                     back.white=TRUE, xlab = "Time (Days)",
+                     ylab = "Cumulative Survival") +
+  ylim(0,1)  +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_x_continuous(limits=c(0,365),
+                     breaks=c(0,50,100,150,200,250,300,350)) +
+  theme(plot.margin = unit(c(1,1,1,1), "cm"))
+days.plot2
+
+
+m.surv <- mean(kind.oflt$p)
+sd.surv <- sd(kind.oflt$p)
+m.surv
+sd.surv
+range(kind.oflt$p)
+median(kind.oflt$p)
+
+plot(yr.fit$time, yr.fit$sur)
 
 mean(yr.fit$n)
 sd(yr.fit$n)
@@ -137,18 +501,85 @@ range(yr.fit$n)
 median(yr.fit$n)
 plot(yr.fit$n)
 
-kmcurves <- plot(hy.fit, xlab="Year", log = "y", 
-               ylab = "Survival", main = "HY birds",
-               ylim = c(0.3,1), xlim = c(0,1))
-library(GGally)
-surv.plot1 <- ggsurv(hy.fit, plot.cens = FALSE, xlab = "Time (Years)",
-                     ylab = "Proportion Surviving") +
-  xlim(c(0,1)) +
-  ylim(c(0,1))
-surv.plot1
+grid.arrange(days.plot2, p.year, ncol=1)
+multiplot(days.plot2, p.year, cols=2)
+mulitplot(days.plot2, p.year, cols=1)
 
-ggsurv(yr.fit) +
-  xlim(c(0,1))
+gA <- ggplotGrob(days.plot2)
+gB <- ggplotGrob(p.year)
+maxWidth = grid::unit.pmax(gA$widths[2:5], gB$widths[2:5])
+gA$widths[2:5] <- as.list(maxWidth)
+gB$widths[2:5] <- as.list(maxWidth)
+grid.arrange(gA, gB, ncol=2)
+#####################################################################
+#4 8 2017 
+#code below is test
+
+#4 4 2017
+##Plot options for publication using base plot
+par(mfrow = c(1,2), mar = c(4,4,0.5,0.5), oma = c(0,0,0,0))
+kmcurve <- plot(hy.fit, xlab="Time (Days)", 
+               ylab = "Proportion Surviving", 
+               xlim = c(0,1), ylim = c(0,1))
+
+yr.curves <- plot(yr.fit, xlim = c(0,365), ylim = c(0,1),
+     xlab = "Time (Days)")
+
+### I'd like to use ggplot, but if I can't get it figured out 
+#just have to use base plot (above)
+library(GGally)
+surv.plot1 <- ggsurv(hy.fit, plot.cens = FALSE, xlab = "Time (Days)",
+                     ylab = "Proportion Surviving")  
+  xlim(0,1) + 
+  surv.plot1 + theme_bw() +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+surv.plot1
+  
+try <- ggsurv(hy.fit, plot.cens = FALSE, lty.est = 1, lty.ci = 2,
+              back.white=TRUE, xlab = "Time (Years)", 
+              ylab = "Cumulative Survival")  
+try + ylim(0,1) + xlim(0,1)
+
+days.ob <- Surv(yrlg.df1$Days, yrlg.df1$Censor, type = c('right'))
+days.fit <- survfit(days.ob ~ 1, conf.type = "log-log")
+
+days.plot <- ggsurv(days.fit, plot.cens = FALSE, lty.est = 1, lty.ci =2, 
+                    back.white=TRUE, xlab = "Time (Days)",
+                    ylab = "Cumulative Survival")
+days.plot + ylim(0,1) + xlim(0,365)
+
+
+#### Go from here, try to work out the axis limits issue 
+days.plot2 <- ggsurv(days.fit, plot.cens = FALSE, lty.est = 1, lty.ci =2, 
+                     back.white=TRUE, xlab = "Time (Days)",
+                     ylab = "Cumulative Survival")
+days.plot2  +ylim(0,1)  +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_x_continuous(limits=c(0,365),
+                     breaks=c(0,50,100,150,200,250,300,350))
+  
+#days yr.fit
+days.yr <- survfit(days.ob ~ yrlg.df1$Year)
+days.plot3 <- ggsurv(days.yr, plot.cens = FALSE,
+                     back.white=TRUE, xlab= "Time (Days)",
+                     ylab = "Cumulative Survival")
+days.plot3 + ylim(0,1) + scale_x_continuous(limits=c(0,365),
+              breaks=c(0,50,100,150,200,250,300,350)) +
+  theme(legend.position="none")
+
+
+## All years
+ggsurv(yr.fit, plot.cens =FALSE, xlab = "Time (Years)", 
+       ylab="Proportion Surviving") +
+  xlim(c(0,1)) +
+  ylim(c(0,1)) +
+  theme(legend.position="none")
 
 
 #store summary of survfit object 
@@ -192,10 +623,7 @@ ggplot(store.it2, aes(time, surv)) +
 library(survminer)
 ggsurvplot(yr.fit, data = yrlg.df1, risk.table = FALSE)
 
-#table of deaths, p and q for birds from KM estimates 
-HYsurv <- read.csv("HYlifetale.csv")
-range(HYsurv$p)
-mean(HYsurv$p)
+#######################################################################
 
 #Correlation plots
 library(corrplot)
@@ -214,12 +642,43 @@ ggplot(yrlg.df1, aes(Mass)) +
   xlab("Day 11 Mass (g)") +
   ylab("Frequency")
 
+mass.plot <- ggplot(yrlg.df1, aes(Mass)) +
+  geom_histogram(binwidth = 0.3, colour = "black", fill = "black") +
+  xlab("Day 11 Mass (g)") +
+  ylab("Frequency") + 
+  theme_bw() + 
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+  #geom_vline(xintercept = mean(yrlg.df1$Mass), color = "red")
+mass.plot
+  
+
 cat("Mean nestling mass= ", mean(yrlg.df1$Mass))
 cat("Standard deviation of mass", sd(yrlg.df1$Mass))
 cat("Median of mass", median(yrlg.df1$Mass))
 
+survs <- subset(yrlg.df1, yrlg.df1$Censor == 0)
+notsurvs <- subset(yrlg.df1, yrlg.df1$Censor == 1)
+
+mean(survs$Mass)
+sd(survs$Mass)
+mean(notsurvs$Mass)
+sd(notsurvs$Mass)
+
 #Fledglings 
 names(HYsurv)
+prop.plot <- ggplot(HYsurv, aes(Year, N)) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 45)) +
+  xlab("Year") +
+  ylab("Number of Fledglings produced") +
+  scale_x_continuous(expand = c(0,0)) +
+  theme(panel.background = element_blank())
+  
+prop.plot
+
 fldgs.plot <- ggplot(HYsurv, aes(Year, N)) +
   geom_bar(width = 0.75, stat = "identity", color = "black", fill = "red") +
   theme(axis.text.x = element_text(angle = 45)) + 
@@ -227,6 +686,7 @@ fldgs.plot <- ggplot(HYsurv, aes(Year, N)) +
   ylab("Count of Individuals") +
   geom_bar(aes(Year, D), stat = "identity", width = 0.75,
            color= "black", fill = "blue")
+fldgs.plot
 #can I overlay the number of survivors?? Basically adding bars on top
 #showing the # of survivors (not proportion)
 
@@ -287,6 +747,8 @@ jayped[,11:12] <- NULL
 HYped <- merge(yrlg.df1, jayped, intersect = c("USFWBand", "NatalNest"))
 names(HYped)
 str(HYped)
+
+wtf <- subset(yrlg.df1, !(yrlg.df1$USFWBand %in% HYped$USFWBand))
 
 HYped <- HYped[,c(2,1,6,21,23,24,25,26,16)]
 
@@ -456,7 +918,8 @@ notin <- subset(founders1, !(founders1$JayID %in% founders$JayID))
 notin <- notin[,c(2,1,3,4,5,6,7)]
 #need the year
 notin["Year"] <- 1978
-
+founders["MinAgeFBr"] <- NULL
+founders["yearind"] <- NULL
 
 birds <- rbind(founders, notin)
 birds <- birds[,c(2,1,3,4,5,6,7,8)]
@@ -536,7 +999,7 @@ jay.ped <- with(new.df, pedigree(id = USFWBand, dadid=MUSFWBand,
 #family 1 is the largest because it's everyone who is connected
 #the other families are disconnected subfamilies 
 ped1 <- jay.ped[1]
-#plot(ped1)
+plot(ped1)
 ped2 <- jay.ped[2]
 plot(ped2)
 ped3 <- jay.ped[3]
@@ -569,75 +1032,377 @@ plot(ped45)
 #estimate kinship matrix
 kins <- kinship(jay.ped)
 
+allFY <- Surv(new.df$Days, new.df$Censor, type = 'right')
+allFY1 <- coxph(allFY ~ Mass + Help, data = new.df)
+allFY2 <- coxph(allFY ~ Mass + Help + Year, data = new.df)
+allFY3 <- coxme(allFY ~ Mass + Help + (1|Year), data = new.df)
+allFY4 <- coxme(allFY ~ Mass + Help + (1|USFWBand) + (1|Year), 
+                varlist=coxmeMlist(kins), data=new.df)
+summary(allFY4)
+
+
+
+all.FYdata <- coxme(allFY ~ Mass + Help + HatchNum + (1|USFWBand) +
+                      (1|Year), varlist = coxmeMlist(kins), data =new.df)
+
 ##################################################################
 ## 3 27 2017 Add in parent age 
 ##need parent ages to add to yrlg.df1
+#"ages" is from new.df, which focuses on HY birds with parental info
+#got rid of NA's bc those are the founders, new.df has the ped info
 ages <- na.omit(new.df)
+#Year is nest year (I'm pretty sure)
 ages <- ages[,c(1,2,3,4,6,21,22,23,24)]
-ages.m <- ages[,c(1,2,3,4,5,6,7)]
-ages.d <- ages[,c(1,2,3,4,5,8,9)]
+ages.m <- ages[,c(1,2,4,5,6,7)]
+ages.d <- ages[,c(1,2,4,5,8,9)]
+colnames(ages.m)[4] <- "NestYear"
+colnames(ages.d)[4] <- "NestYear"
 
-
+#These are the breeders, above the focal birds are HY
 parent.age <- all.brd[,c(1,2,6,10,11,12,18)]
+names(parent.age)
+#parent.age <- breeders.real[ ,c(1,5,14,15,18,19)]
+#parent.age1 <- new.realdf[ ,c(2,7,16,17,20,1)]
+#colnames(parent.age)[2] <- "NestYear"
+#this is the band number of parents 
+#colnames(parent.age)[1] <- "USFWBand"
 mom.age <- subset(parent.age, sex == "F")
+names(mom.age)
 colnames(mom.age)[1] <- "FBreeder"
+colnames(mom.age)[2] <- "FUSFWBand"
+
 dad.age <- subset(parent.age, sex == "M")
+names(dad.age)
 colnames(dad.age)[1] <- "MBreeder"
+colnames(dad.age)[2] <- "MUSFWBand"
 
-new.d <- merge(ages.d, dad.age, by = c("TerrYr","MBreeder"), all.x=TRUE)
-new.m <- merge(ages.m, mom.age, by = c("TerrYr","FBreeder"), all.x=TRUE)
+# 6 2 2017
+#bizzare problem with merge
+#ages.m and ages.d are the focal birds/fledglings 
+#mom.age and dad.age are the parents to be matched 
+names(mom.age)
+names(dad.age)
+names(ages.m)
+names(ages.d)
 
-new.m <- new.m[,c(3,4,5,6,1,7,9,10,11)]
+###Problem of NA's with yrs experience comes here - it's because some terr
+#years are missing
+new.d <- merge(ages.d, dad.age, by = c("MUSFWBand","NestYear"), all.x=TRUE)
+new.m <- merge(ages.m, mom.age, by = c("FUSFWBand","NestYear"), all.x=TRUE)
+
+
+new.m <- new.m[,c(1:9)]
+names(new.m)
 colnames(new.m)[6] <- "momid"
+colnames(new.m)[1] <- "momband"
 colnames(new.m)[8] <- "momexp"
 colnames(new.m)[9] <- "momage"
+#6 2 2017 something is messed up, for some reason merge code adding more cols
+new.m[7] <- NULL
+colnames(new.m)[5] <- "TerrYr"
 
-new.d <- new.d[,c(3,4,5,6,1,7,9,10,11)]
+#new.d <- new.d[,c(3,4,5,6,1,7,9,10,11)]
+new.d <- new.d[,c(1:9)]
+names(new.d)
+colnames(new.d)[1] <- "dadband"
 colnames(new.d)[6] <- "dadid"
 colnames(new.d)[8] <- "dadexp"
 colnames(new.d)[9] <- "dadage"
+#6 2 2017 something weird happening 
+new.d[7] <- NULL
+colnames(new.d)[5] <- "TerrYr"
 
-new.d <- new.d[,c(1,2,5,8,9)]
-new.m <- new.m[,c(1,2,5,8,9)]
+#new.d <- new.d[,c(1,2,5,7,8,9,10)]
+#new.m <- new.m[,c(1,2,5,7,8,9,10)]
 
 new1 <- merge(yrlg.df1, new.d, by = c("USFWBand","JayID"), all.x=TRUE)
 new2 <- merge(new1, new.m, by = c("USFWBand","JayID"), all.x = TRUE)
 
 yrlg.df1 <- new2
-yrlg.df1[,20] <- NULL
-yrlg.df1[,22] <- NULL
-colnames(yrlg.df1)[4] <- "TerrYr"
 
-#COunt experience level per age 
-agexp.count <- count(yrlg.df1, c("momage", "momexp"))
-exp.count  <- count(yrlg.df1, "momexp")
-counts <- count(yrlg.df1, c("momexp", "momage"))
+#6 2 2017 - duplicate cols for some reason now
+#yrlg.df1 <- yrlg.df1[,c(1,2,3,4,5,6,7,8,9,10,
+                        #11,12,13,14,15,16,17,18,19,22,23,25,
+                        #29,30)]
+
+
+#yrlg.df1[,20] <- NULL
+#yrlg.df1[,22] <- NULL
+#colnames(yrlg.df1)[4] <- "TerrYr"
+
 
 #how to plot...?
-mexp0 <- subset(agexp.count, momexp == 0)
-mexp0 <- na.omit(mexp0)
-qplot(momage, freq, data = mexp0, geom="bar")
-ggplot(mexp0, aes(x=momage, y=freq)) +
-geom_bar(stat = "identity")
+#mexp0 <- subset(agexp.count, momexp == 0)
+#mexp0 <- na.omit(mexp0)
+#qplot(momage, freq, data = mexp0, geom="bar")
+#ggplot(mexp0, aes(x=momage, y=freq)) +
+#geom_bar(stat = "identity")
 
 
-counts <- na.omit(counts)
-ggplot(counts, aes(x=momage, y=freq), fill=momexp) +
-geom_bar(colour="blue", stat = "identity")
+#counts <- na.omit(counts)
+#gplot(counts, aes(x=momage, y=freq), fill=momexp) +
+#geom_bar(colour="blue", stat = "identity")
 
-a <- ggplot(counts, aes(x=momage, y=freq))
-a + geom_point(aes(colour=factor(momexp), y=freq))
+#a <- ggplot(counts, aes(x=momage, y=freq))
+#a + geom_point(aes(colour=factor(momexp), y=freq))
 
-b <- ggplot(counts, aes(x=momexp, y=freq))
-b + geom_point(aes(colour=factor(momage), y=freq))
+#b <- ggplot(counts, aes(x=momexp, y=freq))
+#b + geom_point(aes(colour=factor(momage), y=freq))
 
-b+ geom_bar(aes(fill = factor(momage), y=freq), stat="identity")
+#b+ geom_bar(aes(fill = factor(momage), y=freq), stat="identity")
   
 
 #A few duplicates because I matched by TerrYr, there were some breakups
 #of breeding pairs
 #reps1 <- ddply(new1, .(new1$USFWBand), nrow)
 #reps2 <- ddply(new2, .(new2$USFWBand), nrow)
+
+sum(is.na(yrlg.df1$dadexp))
+sum(is.na(yrlg.df1$momexp))
+
+# 6 2 2017 - run models without terr data first so I can exclude NAs
+library(tidyr)
+#remove records with NA's for parent age and experience 
+june2 <- yrlg.df1 %>% drop_na(24,25,30,31)
+str(june2)
+
+june2 %>% count(momage)
+june2 %>% count(momexp)
+mom.counts <- june2 %>% count(momexp, momage)
+
+a <- ggplot(mom.counts, aes(x=momage, y=n))
+a + geom_bar(aes(fill=factor(momexp), y=n), stat="identity")
+
+## add in density 
+june2 <- merge(june2, jay.den, by = ("Year"), all.x=TRUE)
+
+#survival object 
+june2.mob <- Surv(june2$Days, june2$Censor, type=c('right'))
+
+## 6 2 2017 Models here for everything (including mxe)
+mass2 <- coxph(june2.mob ~ Mass, data = june2)
+hatch.num2 <- coxph(june2.mob ~ HatchNum, data=june2)
+flg.num2 <- coxph(june2.mob ~ FldgNum, data=june2)
+cox.year2 <- coxph(june2.mob ~ Year, data = june2)
+summary(mass2)
+summary(hatch.num2)
+summary(flg.num2)
+summary(cox.year2)
+
+help1 <- coxph(june2.mob ~ Help, data = june2)
+help2 <- coxph(june2.mob ~ HelpNum, data = june2)
+summary(help1)
+summary(help2)
+extractAIC(help1)
+extractAIC(help2)
+
+my <- coxph(june2.mob ~ Mass + Year, data = june2)
+summary(my)
+
+myh <- coxph(june2.mob ~ Mass + Help + Year, data = june2)
+summary(myh)
+myhn <- coxph(june2.mob ~ Mass + HelpNum + Year, data = june2)
+summary(myhn)
+extractAIC(myh)
+extractAIC(myhn)
+myhd <- coxph(june2.mob ~ Mass + Help + Den + Year, data = june2)
+myhdn <- coxph(june2.mob ~ Mass + HelpNum + Den + Year, data=june2)
+extractAIC(myh)
+extractAIC(myhd)
+mhyi <- coxph(june2.mob ~ Mass + Help + Year + Year*Help, data = june2)
+summary(mhyi)
+extractAIC(mhyi)
+test11 <- coxph(june2.mob ~ Mass + Year + Help + momexp + FldgNum, 
+                data = june2)
+test12 <- coxph(june2.mob ~ Mass + Year + Help + momexp + HatchNum, 
+                data = june2)
+test13 <- coxph(june2.mob ~ Mass + dadexp, data=june2)
+test14 <- coxph(june2.mob ~ Mass + momexp, data = june2)
+
+
+myha <- coxph(june2.mob ~ Mass + Year + Help + momexp, data = june2)
+myhad <- coxph(june2.mob ~ Mass + Year + Help + momexp + Den, data=june2)
+#age or exp, doesn't matter one isn't better or worse 
+myhage <- coxph(june2.mob ~ Mass + Help + Year + momage, data =june2)
+myhaii <- coxph(june2.mob ~ Mass + Year + Help + momexp + Year*Help, 
+                data = june2)
+
+extractAIC(hatch.num2)
+extractAIC(flg.num2)
+extractAIC(cox.year2)
+extractAIC(help1)
+extractAIC(help2)
+extractAIC(mass2)
+
+library(AICcmodavg)
+Cand.models1 <- list()
+Cand.models1[[1]] <- test11
+Cand.models1[[2]] <- test12
+Cand.models1[[3]] <- cox.year2
+Cand.models1[[4]] <- help1
+Cand.models1[[5]] <- help2
+Cand.models1[[6]] <- mass2
+Cand.models1[[7]] <- my
+Cand.models1[[8]] <- myh
+Cand.models1[[9]] <- mhyi
+Cand.models1[[10]] <- myha
+Cand.models1[[11]] <- myhad
+Cand.models1[[12]] <- myhd
+Modnames1 <- paste("Model", 1:length(Cand.models1), sep="")
+hymods1 <- aictab(Cand.models1, Modnames1, sort = TRUE, second.ord = FALSE)
+hymods1
+
+Cand.models3 <- list()
+Cand.models3[[1]] <- my
+Cand.models3[[2]] <- myh
+Cand.models3[[3]] <- mhyi
+Cand.models3[[4]] <- myha
+Cand.models3[[5]] <- myhaii
+Cand.models3[[6]] <- test11
+Cand.models3[[7]] <- test12
+Modnames3 <- paste("Model", 1:length(Cand.models3), sep="")
+hymods3 <- aictab(Cand.models3, Modnames3, sort = TRUE, second.ord=FALSE)
+hymods3
+
+extractAIC(my)
+extractAIC(myh)
+extractAIC(mhyi)
+extractAIC(myha)
+extractAIC(myhaii)
+
+#Do same models but with year as a random term 
+mxx1 <- coxme(june2.mob ~ Mass + (1|Year), data=june2)
+mxx2 <- coxme(june2.mob ~ Mass + Help + (1|Year), data=june2)
+mxx3 <- coxme(june2.mob ~ Mass + Help + momexp + (1|Year), data=june2)
+mxx4 <- coxme(june2.mob ~ Mass + momexp + (1|Year), data=june2)
+summary(mxx1)
+summary(mxx2)
+summary(mxx3)
+summary(mxx4)
+
+#mxx5 <- coxme(june2.mob ~ Mass + momexp + (1|Year) + (Help|Year) , 
+              #data=june2)
+mxden <- coxme(june2.mob ~ Mass + Den + (1|USFWBand) + (1|Year), 
+              varlist = coxmeMlist(kins), data = june2)
+#summary(mxden)
+mxden1 <- coxme(june2.mob ~ Mass + Help + Den + (1|USFWBand) + (1|Year),
+              varlist=coxmeMlist(kins), data = june2)
+mxden2 <- coxme(june2.mob ~ Mass + Help + momexp + Den + (1|USFWBand) + 
+                (1|Year), varlist=coxmeMlist(kins), data = june2)
+#summary(mxden2)
+mxden3 <- coxme(june2.mob ~ Mass + Help + momexp + (1|USFWBand) + (1|Year),
+                varlist = coxmeMlist(kins), data=june2)
+#summary(mxden3)
+mxdenAB <- coxme(june2.mob ~ Mass + Help + (1|USFWBand) + (1|Year),
+            varlist = coxmeMlist(kins), data = june2)
+
+####################################################################
+mxdennA <- coxme(june2.mob ~ Mass + HelpNum + Den + (1|USFWBand) + (1|Year),
+                 varlist=coxmeMlist(kins), data=june2)
+summary(mxdennA)
+mxdennB <- coxme(june2.mob ~ Mass + HelpNum + momexp + (1|USFWBand) + (1|Year),
+                 varlist=coxmeMlist(kins), data=june2)
+summary(mxdennB)
+mxdennC <- coxme(june2.mob ~ Mass + HelpNum + momexp + Den + (1|USFWBand) + 
+                   (1|Year), varlist=coxmeMlist(kins), data=june2)
+summary(mxdennC)
+
+mxdenn <- coxme(june2.mob ~ Mass + HelpNum + (1|USFWBand) + (1|Year), 
+                varlist = coxmeMlist(kins), data=june2)
+summary(mxdenn)
+Cand.modelsD <- list()
+Cand.modelsD[[1]] <- mxdenn
+Cand.modelsD[[2]] <- mxdennA
+Cand.modelsD[[3]] <- mxdennB
+Cand.modelsD[[4]] <- mxdennC
+ModnamesD <- paste("Model", 1:length(Cand.modelsD), sep="")
+tableD <- aictab(Cand.modelsD, ModnamesD, sort = TRUE, second.ord=FALSE)
+tableD
+#####################################################################
+mxdennD <- coxme(june2.mob ~ Mass + Help + Den + momexp + HatchNum
+      + (1|USFWBand) + (1|Year), varlist = coxmeMlist(kins), data = june2)
+mxdennE <- coxme(june2.mob ~ Mass + Help + momexp + HatchNum 
+              + (1|USFWBand) + (1|Year), varlist = coxmeMlist(kins),
+              data = june2)
+mxdennF <- coxme(june2.mob ~ Mass + Help + HatchNum + (1|USFWBand) +
+                (1|Year), varlist = coxmeMlist(kins), data=june2)
+summary(mxdennF)
+
+Cand.modelsAAA <- list()
+Cand.modelsAAA[[1]] <- mxdennD
+Cand.modelsAAA[[2]] <- mxdennE
+Cand.modelsAAA[[3]] <- mxdennF
+Cand.modelsAAA[[4]] <- mxdenAB
+Cand.modelsAAA[[5]] <- mxden1
+Cand.modelsAAA[[6]] <- mxden2
+Cand.modelsAAA[[7]] <- mxden3
+ModnamesAAA <- paste("Model", 1:length(Cand.modelsAAA), sep="")
+tableAAA <- aictab(Cand.modelsAAA, ModnamesAAA, sort = TRUE, second.ord=FALSE)
+tableAAA
+
+
+Cand.modelsF <- list()
+Cand.modelsF[[1]] <- mxden
+Cand.modelsF[[2]] <- mxden1
+Cand.modelsF[[3]] <- mxden2
+Cand.modelsF[[4]] <- mxden3
+
+ModnamesF <- paste("Model", 1:length(Cand.modelsF), sep="")
+tableF <- aictab(Cand.modelsF, ModnamesF, sort = TRUE, second.ord=FALSE)
+tableF
+
+
+mxc1 <- coxme(june2.mob ~ Mass + (1|USFWBand) + (1|Year),
+          varlist = coxmeMlist(kins), data = june2)
+mxc2 <- coxme(june2.mob ~ Mass + Help + (1|USFWBand) + (1|Year),
+              varlist = coxmeMlist(kins), data = june2)
+mxc3 <- coxme(june2.mob ~ Mass + Help + momexp + (1|USFWBand) + (1|Year),
+              varlist = coxmeMlist(kins), data = june2)
+mxc4 <- coxme(june2.mob ~ Mass + momexp + (1|USFWBand) + (1|Year), 
+              varlist = coxmeMlist(kins), data = june2)
+mxc5 <- coxme(june2.mob ~ Mass + momage + (1|USFWBand) + (1|Year), 
+              varlist = coxmeMlist(kins), data = june2)
+mxc6 <- coxme(june2.mob ~ Mass + Help + momage + (1|USFWBand) + (1|Year),
+              varlist = coxmeMlist(kins), data = june2)
+mxc7 <- coxme(june2.mob ~ Mass + Help + momexp + HatchNum +
+                (1|USFWBand) + (1|Year), varlist=coxmeMlist(kins), 
+              data = june2)
+mxc8 <- coxme(june2.mob ~ Mass + Help + momexp + FldgNum + (1|USFWBand) 
+              + (1|Year), varlist=coxmeMlist(kins), data= june2)
+#mxc9 <- coxme(june2.mob ~ Mass + Help + momexp + Year*Help + (1|USFWBand),
+              #varlist=coxmeMlist(kins), data=june2)
+########################################################
+summary(mxc1)
+summary(mxc2)
+summary(mxc3)
+summary(mxc4)
+summary(mxc5)
+summary(mxc6)
+########################################################
+
+Cand.models4 <- list()
+Cand.models4[[1]] <- mxc1
+Cand.models4[[2]] <- mxc2
+Cand.models4[[3]] <- mxc3
+Cand.models4[[4]] <- mxc4
+#Cand.models4[[5]] <- mxc5
+#Cand.models4[[6]] <- mxc6
+Cand.models4[[5]] <- mxc7
+Cand.models4[[6]] <- mxc8
+#Cand.models4[[7]] <- my
+#Cand.models4[[10]] <- myh
+#Cand.models4[[11]] <- mhy
+#Cand.models4[[12]] <- myha
+#Cand.models4[[13]] <- myhaii
+#Cand.models4[[14]] <- test11
+#Cand.models4[[15]] <- test12
+Modnames4 <- paste("Model", 1:length(Cand.models4), sep="")
+table4 <- aictab(Cand.models4, Modnames4, sort = TRUE, second.ord=FALSE)
+table4
+
+
+#doesn't work
+#mxc7 <- coxme(june2.mob ~ Mass + Help + momexp + (1|USFWBand), varlist = coxmeMlist(kins), data = june2)
 
 
 ##########################################################################
@@ -744,12 +1509,20 @@ yrlg.df1$Years <- as.numeric(yrlg.df1$Years)
 yrlg.df1$Days <- as.numeric(yrlg.df1$Days)
 yrlg.df1$stdsize <- as.numeric(yrlg.df1$stdsize)
 
+names(yrlg.df1)
+yrlg.df1[,c(21,22,26,28,29,33)] <- NULL
+names(yrlg.df1)
+
 library(corrplot)
-covars1 <- yrlg.df1[,c(24,25,26)]
-covars1["oakfrac"] <- covars1$scrb.count/covars1$TerrSize
-covars1["tsffrac"] <- covars1$tsf.count/covars1$TerrSize
-colnames(covars1) <- c("OakScrub", "TerrSize", "TSF", "RelOak", "RelTSF")
+covars1 <- yrlg.df1[,c(20,21,22)]
+#covars1["oakfrac"] <- covars1$scrb.count/covars1$TerrSize
+#covars1["tsffrac"] <- covars1$tsf.count/covars1$TerrSize
+colnames(covars1) <- c("Oak Scrub", "Territory Size", "2-9 year TSF")
 corrs1 <- cor(covars1, use="complete.obs")
+
+# new colors
+my.cols <- colorRampPalette(c("black", "gray50", "gray87"),bias=0.5)
+
 corrplot(corrs1, method="pie", type= "lower")
 corrs1
 #######################################################################
@@ -799,12 +1572,14 @@ theta <- seq(0,2*pi, length.out=100)
 circle <- data.frame(x = cos(theta), y = sin(theta))
 p <- ggplot(circle, aes(x,y)) + geom_path()
 
-loadings <- data.frame(vars.pca$rotation, 
-                       .names = row.names(vars.pca$rotation))
+loadings <- data.frame(vars.pca1$rotation, 
+                       .names = row.names(vars.pca1$rotation))
 p + geom_text(data = loadings, mapping = aes(x = PC1, y = PC2, 
                                              label = .names, colour = .names)) + 
   coord_fixed(ratio=1) +
-  labs(x = "PCI", y = "PC2")
+  labs(x = "PCI", y = "PC2") +
+  theme(panel.grid = element_blank()) +
+  theme_bw()
 
 ## Cox models with PCI and II as predictors for territory quality 
 #PCA object
@@ -820,18 +1595,29 @@ str(pc.scores)
 #subset data frame to include birds with terr data
 library(tidyr)
 flg.sub <- yrlg.df1
-flg.sub1 <- flg.sub %>% drop_na(24,25,26,27,28,29,30,31,32)
+#flg.sub1 <- flg.sub %>% drop_na(24,25,26,27,28,29,30,31,32)
+#June 2
+flg.sub1 <- flg.sub %>% drop_na(22,23,26,27,28,29,30,31,32,33,34,35,36)
 
-
-#should be 1529
+#should be 1529, more now 4 15 2017
 flg.sub1 <- cbind(flg.sub1, pc.scores)
 plot(flg.sub1$PC1, flg.sub1$stdsize)
 plot(flg.sub1$PC2, flg.sub1$stdscr)
 plot(flg.sub1$PC2, flg.sub1$stdtsf)
 
+##untransformed data 
+plot(flg.sub1$PC1, flg.sub1$TerrSize)
+plot(flg.sub1$PC1, flg.sub1$scrb.count)
+plot(flg.sub1$PC1, flg.sub1$tsf.count)
+
+plot(flg.sub1$PC2, flg.sub1$scrb.count)
+plot(flg.sub1$PC2, flg.sub1$tsf.count)
+
+
 str(flg.sub1)
 names(flg.sub1)
 flg.sub2 <- flg.sub1 %>% drop_na(22,23)
+flg.sub2 <- flg.sub2[!duplicated(flg.sub2$USFWBand),]
 
 #yearling territory data object 
 yrlg.tob <- Surv(flg.sub2$Years, flg.sub2$Censor, type = c('right'))
@@ -866,7 +1652,151 @@ mice(new.yrlgdf)
 # makes it much easier because then I just have to build 1 data frame 
 
 #Survival object for all models 
-yrlg.mob <- Surv(yrlg.df1$Years, yrlg.df1$Censor, type = c('right'))
+#yrlg.mob <- Surv(yrlg.df1$Years, yrlg.df1$Censor, type = c('right'))
+#days
+#Use days because there are some that lived 1 day (which R says is 0 years)
+yrlg.dob <- Surv(yrlg.df1$Days, yrlg.df1$Censor, type = c('right'))
+
+## June 5 2017 
+#Do models here 
+#june5 <- yrlg.df1 %>% drop_na(27:34)
+june5 <- yrlg.df1 %>% drop_na(32:40)
+june5.ob <- Surv(june5$Days, june5$Censor, type = c('right'))
+
+#June 19 - some repeated band #s
+rep.juv <- ddply(june5, .(june5$USFWBand), nrow)
+june5a <- june5[!duplicated(june5$USFWBand),]
+june5a.ob <- Surv(june5a$Days, june5a$Censor, type = c('right'))
+
+
+## corrplot 
+
+
+
+
+terr1 <- coxph(june5a.ob ~ Mass + stdscr + Year, data = june5a)
+summary(terr1)
+terr2 <- coxph(june5a.ob ~ Mass + stdsize + Year, data = june5a)
+summary(terr2)
+terr3 <- coxph(june5a.ob ~ Mass + stdtsf + Year, data = june5a)
+summary(terr3)
+terr4 <- coxph(june5a.ob ~ Mass + Year, data = june5a)
+extractAIC(terr4)
+extractAIC(terr1)
+extractAIC(terr2)
+extractAIC(terr3)
+
+terrh <- coxph(june5a.ob ~ Mass + Help + Year, data = june5a)
+terrh1 <- coxph(june5a.ob ~ Mass + Help + Year + stdsize, data = june5a)
+terrh1i <- coxph(june5a.ob ~ Mass + Help + Year + stdsize + Year*Help,
+                 data = june5a)
+extractAIC(terrh)
+extractAIC(terrh1)
+
+Cand.models4 <- list()
+Cand.models4[[1]] <- terr1
+Cand.models4[[2]] <- terr2
+Cand.models4[[3]] <- terr3
+Cand.models4[[4]] <- terr4
+Cand.models4[[5]] <- terrh
+Cand.models4[[6]] <- terrh1
+Cand.models4[[7]] <- terrh1i
+Modnames4 <- paste("Model", 1:length(Cand.models4), sep="")
+hymods4 <- aictab(Cand.models4, Modnames4, sort = TRUE, second.ord = FALSE)
+hymods4
+
+## June 21 u
+
+fig3 <- coxph(june5a.ob ~ stdsize, data = june5a)
+fig3.df <- data.frame(predict(fig3, type="risk", se.fit=TRUE))
+fig3.df$stdsize <- june5a$stdsize
+pf3 <- with(fig3.df, data.frame(stdsize, hazard = fit,
+            lwr = fit - 1.96*se.fit, upr = fit + 1.96*se.fit))
+
+
+fig3A <- ggplot(pf3, aes(stdsize, hazard)) + 
+  geom_line() +
+  xlab("Territory Size") +
+  ylab("Predicted Relative Risk") + 
+  theme_bw() +
+  geom_hline(yintercept = 1.0, linetype = 2) +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  geom_ribbon(data = pf3, aes(ymin=lwr, ymax=upr), alpha = 0.2) +
+  scale_x_continuous(breaks=c(0,1,2,3))
+fig3A
+
+fig4 <- coxph(june5a.ob ~ TerrSize, data = june5a)
+fig4.df <- data.frame(predict(fig4, type="risk", se.fit=TRUE))
+fig4.df$TerrSize <- june5a$TerrSize
+pf4 <- with(fig4.df, data.frame(TerrSize, hazard = fit,
+            lwr = fit - 1.96*se.fit, upr = fit + 1.96*se.fit))
+
+fig4A <- ggplot(pf4, aes(TerrSize, hazard)) + 
+  geom_line() +
+  xlab("Territory Size") +
+  ylab("Predicted Relative Risk") + 
+  theme_bw() +
+  geom_hline(yintercept = 1.0, linetype = 2) +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  geom_ribbon(data = pf4, aes(ymin=lwr, ymax=upr), alpha = 0.2) 
+fig4A
+
+
+#Mixed models
+mxb1 <- coxme(june5a.ob ~ Mass + Help + stdsize + (1|Year), data=june5a)
+mxb2 <- coxme(june5a.ob ~ Mass + Help + (1|Year), data = june5a)
+mxb3 <- coxme(june5a.ob ~ Mass + (1|Year), data=june5a)
+
+summary(mxb1)
+summary(mxb2)
+summary(mxb3)
+
+den.dfAA <- merge(june5a, jay.den, by = ("Year"), all.x=TRUE)
+june5b.ob <- Surv(den.dfAA$Days, den.dfAA$Censor, type='right')
+
+mxb4 <- coxme(june5b.ob ~ Mass + (1|USFWBand) + (1|Year), 
+      varlist = coxmeMlist(kins), data = den.dfAA)
+mxb5 <- coxme(june5b.ob ~ Mass + Help + stdsize + (1|USFWBand) + (1|Year),
+              varlist = coxmeMlist(kins), data = den.dfAA)
+mxb6 <- coxme(june5b.ob ~ Mass + Help + (1|USFWBand) + (1|Year),
+              varlist = coxmeMlist(kins), data = den.dfAA)
+mxb7 <- coxme(june5b.ob ~ Mass + Help + Den + (1|USFWBand) + (1|Year),
+              varlist = coxmeMlist(kins), data = den.dfAA)
+mxb8 <- coxme(june5b.ob ~ Mass + Help + HatchNum + (1|USFWBand) + (1|Year),
+              varlist = coxmeMlist(kins), data = den.dfAA)
+mxb9 <- coxme(june5b.ob ~ Mass + Help + Den + stdsize + (1|USFWBand) +
+                (1|Year), varlist = coxmeMlist(kins), data = den.dfAA)
+summary(mxb9)
+
+mxb10 <- coxme(june5b.ob ~ Mass + HelpNum + stdsize + HelpNum*stdsize +
+                 (1|USFWBand) + (1|Year), varlist = coxmeMlist(kins), 
+               data = den.dfAA)
+mxb11 <- coxme(june5b.ob~ Mass + HelpNum + stdsize + (1|USFWBand) + 
+              (1|Year), varlist= coxmeMlist(kins), data = den.dfAA)
+
+# 6 9 2017 
+Cand.models5 <- list()
+Cand.models5[[1]] <- mxb4
+Cand.models5[[2]] <- mxb5
+Cand.models5[[3]] <- mxb6
+Cand.models5[[4]] <- mxb7
+Cand.models5[[5]] <- mxb8
+Cand.models5[[6]] <- mxb9
+Modnames5 <- paste("Model", 1:length(Cand.models5), sep="")
+hymods5 <- aictab(Cand.models5, Modnames5, sort = TRUE, second.ord = FALSE)
+hymods5
+
+
+
+
+
+
 
 #######################################################################
 ## Cox PH Models 
@@ -880,13 +1810,26 @@ flg.num <- coxph(yrlg.mob ~ FldgNum, data=yrlg.df1)
 flg.num
 anova(flg.num)
 
+#4 27 2017 fledge date? probably not the right way to do it 
+flg.date <- coxph(yrlg.mob ~ FldgDate, data = yrlg.df1)
+summary(flg.date)
+
 #Year as a factor
 cox.year <- coxph(yrlg.mob ~ Year, data = yrlg.df1)
 cox.year
 anova(cox.year)
 
+#5 31 2017
+yrb.h <- coxph(yrlg.mob ~ Mass + HelpNum + Year + HelpNum*Year, data=yrlg.df1)
+#logistic regression 
+lg.yh <- glm(Censor ~ Mass + HelpNum + Year:HelpNum, data = yrlg.df1, 
+      family = binomial(link=logit))
+lg.yh1 <- glm(Censor ~ Mass + HelpNum + Year, data = yrlg.df1, 
+             family=binomial(link=logit))
+summary(lg.yh1)
+
 #Compare the first 3, brood size and fledge # add nothing 
-d,ev.compare1 <- anova(hatch.num, flg.num, cox.year, test="Chisq")
+dev.compare1 <- anova(hatch.num, flg.num, cox.year, test="Chisq")
 dev.compare1
 
 #Parent age and experience
@@ -895,22 +1838,27 @@ plot(yrlg.df1$momage, yrlg.df1$Years)
 plot(yrlg.df1$Years, yrlg.df1$momage)
 plot(yrlg.df1$momexp, yrlg.df1$Years)
 
-momage <- coxph(yrlg.mob ~ momage, data = yrlg.df1)
-summary(momage)
-plot(cox.zph(momage))
+mom.age <- coxph(yrlg.mob ~ momage, data = yrlg.df1)
+summary(mom.age)
+cox.zph(mom.age, global=TRUE)
+plot(cox.zph(mom.age))
+anova(mom.age)
+
 dadage <- coxph(yrlg.mob ~ dadage, data = yrlg.df1)
 plot(cox.zph(dadage))
 summary(dadage)
-anova(momage)
+anova(mom.age)
 anova(dadage)
 
 ##polynomials
 momage.py <- coxph(yrlg.mob ~ momage + I(momage^2), data = yrlg.df1)
 summary(momage.py)
-anova(momage, momage.py)
+anova(mom.age, momage.py)
 
 momexp.mod <- coxph(yrlg.mob ~ momexp, data = yrlg.df1)
+cox.zph(momexp.mod)
 summary(momexp.mod)
+plot(cox.zph(momexp.mod))
 anova(momexp.mod)
 
 
@@ -918,7 +1866,7 @@ dadexp.mod <- coxph(yrlg.mob ~ dadexp, data = yrlg.df1)
 summary(dadexp.mod)
 anova(dadexp.mod)
 
-sim.moage <- coxsimLinear(momage, b = "momage", Xj = 1:15)
+sim.moage <- coxsimLinear(mom.age, b = "momage", Xj = 1:15)
 simGG(sim.moage)
 sim.mexp <- coxsimLinear(momexp.mod, b = "momexp", Xj = 0:15)
 simGG(sim.mexp)
@@ -930,18 +1878,47 @@ simGG(sim.mexp)
 #to be 4 than say 7? So at any given experience level, want to know
 #the effect of age
 temp.mom <- yrlg.df1
+temp.momA <- temp.mom
+temp.momA <- temp.momA %>% drop_na(23)
+ob.A <- Surv(temp.momA$Years, temp.momA$Censor, type = c('right'))
+zillion <- coxph(ob.A ~ Mass + momage, data = temp.momA)
+
+sickofthis <- data.frame(predict(zillion, type="risk", se.fit=TRUE))
+sickofthis$momage <- temp.momA$momage
+predframe.age <- with(sickofthis, data.frame(momage, 
+        hazard = fit, lwr = fit - 1.96*se.fit,
+        upr = fit + 1.96*se.fit))
+
+age.plot <- ggplot(predframe.age, aes(momage, hazard)) +
+  geom_point() + 
+  xlab("Age of Mother (Years)") +
+  ylab("Predicted Relative Risk") +
+  theme_bw() +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_y_continuous(breaks = c(0.8,1.0,1.2,1.4,1.6,1.8,2.0)) +
+  scale_x_continuous(breaks = c(1,3,5,7,9,11,13,15))
+age.plot
+
+
 temp.mom <- temp.mom %>% drop_na(22,23)
 temp.ob <- Surv(temp.mom$Years, temp.mom$Censor, type = c('right'))
 temp.cox <- coxph(temp.ob ~ momage, data = temp.mom)
 summary(temp.cox)
+anova(temp.cox)
 temp.cox1 <- coxph(temp.ob ~ momexp, data = temp.mom)
 summary(temp.cox1)
+anova(temp.cox1)
 temp.cox2 <- coxph(temp.ob ~ momage + momexp, data = temp.mom)
 summary(temp.cox2)
+anova(temp.cox2)
 
 temp.cox3 <- coxph(temp.ob ~ momage + momexp + momage*momexp, 
                    data = temp.mom)
 summary(temp.cox3)
+anova(temp.cox2, temp.cox3)
 
 temp.mom$pred.age <- predict(temp.cox, temp.mom, type="risk")
 temp.mom$pred.exp <- predict(temp.cox1, temp.mom, type="risk")
@@ -975,10 +1952,19 @@ p.momint + facet_grid(.~momage) +
 xlab("Mom Experience") +
 ylab("Relative Risk")
 
-
+## 4 15 2017 adding to dissertation chapter/manuscript 
 ## 3 29 2017 Getting closer with the plot below 
 p.mom1 <- ggplot(trts, aes(momage, Risk)) + geom_point() 
-p.mom1 + facet_grid(.~momexp)
+p.mom1 + facet_grid(.~momexp) +
+  xlab("Mom Age") +
+  ylab("Predicted Relative Risk") +
+  theme_bw()+
+theme(panel.grid.major.y = element_blank(), 
+      panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_y_continuous(breaks = c(0.8, 1.0, 1.2, 1.4))
+
 
 ggplot(trts, aes(x=momage,y=momexp)) +
   geom_point(aes(size=Risk))
@@ -990,6 +1976,48 @@ qplot(momage, Risk, data = trts, colour = momexp)
 qplot(momage, momexp, data=trts, colour= Risk)
 ##only bottom half of plot makes sense
 ##email Gordon about this 
+
+#Now use each one (exp and age separately by dropping NA's sep)
+temp.mom2 <- yrlg.df1
+temp.mom2 <- temp.mom2[!duplicated(temp.mom2$USFWBand),]
+
+temp.mom2 <- temp.mom2 %>% drop_na(23)
+length(unique(temp.mom2$USFWBand))
+tm2.ob <- Surv(temp.mom2$Days, temp.mom2$Censor, type = c('right'))
+
+tm2.exp <- coxph(tm2.ob ~ Mass + momexp, data = temp.mom2)
+summary(tm2.exp)
+anova(tm2.exp)
+tm2.exp1 <- coxph(tm2.ob ~ Mass + momexp + HelpNum, data = temp.mom2)
+tm2.exp2 <- coxph(tm2.ob ~ Mass + momexp +Help, data = temp.mom2)
+summary(tm2.exp1)
+summary(tm2.exp2)
+anova(tm2.exp1)
+anova(tm2.exp2)
+tm2.exp3 <- coxph(tm2.ob ~ Mass + Help, data = temp.mom2)
+tm2.exp4 <- coxph(tm2.ob ~ Mass + HelpNum, data = temp.mom2)
+anova(tm2.exp3)
+anova(tm2.exp4)
+
+fit.exp <- data.frame(predict(tm2.exp, type="risk",se.fit=TRUE))
+fit.exp$momexp <- temp.mom2$momexp
+predframe.exp <- with(fit.exp, data.frame(momexp, 
+                      hazard = fit, lwr = fit- 1.96*se.fit,
+                      upr = fit+ 1.96*se.fit))
+
+exp.plot <- ggplot(predframe.exp, aes(momexp, hazard)) +
+  geom_point() +
+  xlab("Experience of Mother (Years)") +
+  ylab("Predicted Relative Hazard") +
+  theme_bw() + 
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_x_continuous(breaks = c(0,2,4,6,8,10,12,14)) +
+  scale_y_continuous(breaks = c(0.8,1.0,1.2,1.4,1.6))
+  
+exp.plot
 
 ###Try AFT model to get survival probabilites 
 #temp.ob - surv object
@@ -1004,16 +2032,183 @@ names(momAFT)
 
 #Mass
 mass.full <- coxph(yrlg.mob ~ Mass, data = yrlg.df1)
+mass.full <- coxph(yrlg.dob ~ Mass, data = yrlg.df1)
 summary(mass.full)
 anova(mass.full)
+temp <- subset(yrlg.df1, yrlg.df1$Year == 2005)
+temp1 <- subset(temp, temp$Mass == 45.5)
+temp2 <- subset(temp, temp$Mass == 33.7)
+temp3 <- subset(temp, temp$Mass == 56.2)
+sfit <- survfit(mass.full, temp)
+sfit1 <- survfit(mass.full, temp1)
+sfit2 <- survfit(mass.full, temp2)
+sfit3 <- survfit(mass.full, temp3)
+plot(sfit1, xlim = c(0,365))
+lines(sfit2)
+lines(sfit3)
+
+#compare mass within year
+tempA <- subset(yrlg.df1, yrlg.df1$Year == 1997)
+tempA1 <- subset(tempA, tempA$Mass == 45)
+tempA2 <- subset(tempA, tempA$Mass == 59.8)
+tempA3 <- subset(tempA, tempA$Mass == min(tempA$Mass))
+sfitA1 <- survfit(mass.full, tempA1)
+sfitA2 <- survfit(mass.full, tempA2)
+sfitA3 <- survfit(mass.full, tempA3)
+plot(sfitA2, xlim = c(0,365))
+lines(sfitA1, lty = 2)
+lines(sfitA2, lty = 3)
+
+
+# 4 27 2017
+#from internet example
+tab <- data.frame(table(yrlg.df1[yrlg.df1$Censor == 1, "Days"]))
+y <- as.numeric(levels(tab[, 1]))[tab[, 1]]
+d <- tab[, 2]
+H0 <- basehaz(mass.full, centered = FALSE)
+H0 <- H0[H0[, 2] %in% y, ]
+betaHat <- mass.full$coef
+#h0 <- rep(NA, length(y))
+#for(i in 1:length(y)) {
+ # h0[i] <- d[i] / sum(exp(yrlg.df1[yrlg.df1$time >= y[1], "Mass"] * betaHat))
+  #print(h0)
+  #
+#H0$surv <- (-integrate(exp(H0$hazard)))
+
+
+#cbind(H0, cumsum(h0))
+
+#str(summary(survfit(mass.full), time = 0.5))
+#str(summary(survfit(mass.full), time = 1))
+#str(summary(survfit(mass.full), time = 5))
+
+
 #plot of scaled Schoenfield residuals to check PH assumption 
 plot(cox.zph(mass.full))
-#simPH method
+bsl.haz <- basehaz(mass.full)
+plot(bsl.haz$time, bsl.haz$hazard, type = 'l', xlim = c(0,1))
+lines(bsl.haz$time, 0.979*bsl.haz$hazard)
+#simPH method - I don't understand what it is plotting here, this 
+#does not match with the predict funciton...? 
 sim.mass <- coxsimLinear(mass.full, b = "Mass", qi = "Relative Hazard", 
                          Xj = c(15, 65), spin = TRUE)
 simGG(sim.mass,type="ribbons", alpha = 0.35)
+
+sim.mass2 <- coxsimLinear(mass.full, b = "Mass", 
+                      qi = "Hazard Ratio", Xj = c(15,65))
+simGG(sim.mass2)
+
+mass.poly <- coxph(yrlg.mob ~ Mass + I(Mass^2), data = yrlg.df1)
+summary(mass.poly)
+preds.mass <- predict(mass.poly, type="risk", se.fit=TRUE)
+preds.mass <- as.data.frame(preds.mass)
+preds.mass <- data.frame(preds.mass, yrlg.df1$Mass)
+colnames(preds.mass) <- c("fit", "se", "Mass")
+
+coefMass <- coef(mass.poly)
+mean.mass <- mean(yrlg.df1$Mass)
+rMean.mass <- exp(coefMass["Mass"])
+r1234.mass <- exp(coefMass["Mass"]*(as.numeric(yrlg.df1[1:4, "Mass"])))
+#relative risk of first 4 individuals divided by mean relative risk
+r1234.mass/rMean.mass
+relRisk.mass <- predict(mass.poly, yrlg.df1, type="risk")
+risks2 <- data.frame(relRisk.mass[1:50], yrlg.df1$Mass[1:50])
+colnames(risks2) <- c("RelRisk", "Mass")
+plot(risks2$Mass, risks2$RelRisk)
+
+fit.mass <- data.frame(predict(mass.poly, type="risk", se.fit=TRUE))
+fit.mass$Mass <- yrlg.df1$Mass
+colnames(fit.mass)[3] <- "Mass"
+predframe.mass <- with(fit.mass, data.frame(Mass, hazard=fit, 
+                                  lwr = fit - 1.96*se.fit, upr = fit + 1.96*se.fit))
+
+##Mass poly - adapted from code written for mass with no polynomial
+pB <- ggplot(predframe.mass, aes(Mass, hazard)) +
+  geom_line()
+pB + ylim(0,2) +
+  xlab("Nestling Mass (g)") +
+  ylab("Predicted Relative Risk") + 
+  theme_bw() +
+  geom_hline(yintercept = 1.0, linetype = 2) +
+  geom_ribbon(data = predframe.mass, aes(ymin=lwr, ymax=upr), alpha = 0.2) +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+#### Looking at this graph I don't think there is much support for 
+# a non-linear relationship
+# it's approximately linear 
+
+sim.poly <- coxsimPoly(mass.poly, b = "Mass", qi ="Hazard Rate", pow=2, 
+                       Xj = c(19,66), ci = 0.95)
+simGG(sim.poly)
+
+####### 4 10 2017 Use this 
+
 #predicted values 
-preds <- predict(mass.full, type="risk")
+preds <- predict(mass.full, type="risk", se.fit=TRUE)
+preds <- as.data.frame(preds)
+preds <- data.frame(preds, yrlg.df1$Mass)
+colnames(preds) <- c("fit","se","Mass")
+
+#From John Fox's appednix in applied regression book 
+#Get coefficients 
+coefCPH <- coef(mass.full)
+mean.mass <- mean(yrlg.df1$Mass)
+rMean <- exp(coefCPH["Mass"])
+r1234 <- exp(coefCPH["Mass"]*(as.numeric(yrlg.df1[1:4, "Mass"])))
+#relative risk of first 4 individuals divided by mean relative risk
+r1234/rMean
+relRisk <- predict(mass.full, yrlg.df1, type="risk")
+risks1 <- data.frame(relRisk[1:50], yrlg.df1$Mass[1:50])
+colnames(risks1) <- c("RelRisk", "Mass")
+plot(risks1$Mass, risks1$RelRisk)
+
+
+
+###use this an change to ggplot2
+plot(preds$yrlg.df1.Mass, preds$fit)
+lines(preds$yrlg.df1.Mass, preds$se.fit)
+
+  
+## Example online for nlme 
+fit <- data.frame(predict(mass.full, type="risk", se.fit=TRUE))
+fit$Mass <- yrlg.df1$Mass
+colnames(fit)[3] <- "Mass"
+predframe <- with(fit, data.frame(Mass, hazard=fit, 
+        lwr = fit - 1.96*se.fit, upr = fit + 1.96*se.fit))
+
+##4 11 2017 as long as this is correct, then this is nice 
+pA <- ggplot(predframe, aes(Mass, hazard)) +
+  geom_line()
+pA + ylim(0,2) +
+  xlab("Nestling Mass (g)") +
+  ylab("Predicted Relative Risk") + 
+  theme_bw() +
+  geom_hline(yintercept = 1.0, linetype = 2) +
+  geom_ribbon(data = predframe, aes(ymin=lwr, ymax=upr), alpha = 0.2) +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+
+#survival curve estimated from cox model
+plot(survfit(mass.full, se.fit=TRUE, conf.int=.95), xlim=c(0,1))
+
+## Make same plot but add helper number?
+## Use fill or something like that for helpers 
+
+
+#### Not correct but this is the way, integration of the hazard 
+# function 
+h <- function(m) exp((basehaz(mass.full)) + 0.979*m)
+m <- yrlg.df1$Mass
+t <- hy.fit$time
+exp(-integrate(h, 0, t)$value)
+
+
+test.plot <- termplot(mass.full, data = yrlg.df1,
+                  se=TRUE, terms = "residuals")
 
 #Helper presence/absence 1,0
 cx.hlpr <- coxph(yrlg.mob ~ Help, data=yrlg.df1)
@@ -1045,13 +2240,25 @@ anova(cx.group)
 #Helper number is an integer 
 sim.help2 <- coxsimLinear(cx.group, b = "HelpNum", qi = "Relative Hazard",
                       Xj = c(0,6))
-helpplot2 <- simGG(sim.help2, xlab = "Helper Number", alpha = 0.4)
-plotb <- helpplot2 + theme(panel.grid.major = element_blank(),
+helpplot2 <- simGG(sim.help2, xlab = "Helper Number",
+                   ylab = "Relative Hazard", alpha = 0.4)
+plotb <- helpplot2 + ylab("Simulated Relative Hazard") +
+  theme(panel.grid.major = element_blank(),
                   panel.grid.minor = element_blank()) +
                   scale_x_continuous(breaks =c(0,1,2,3,4,5,6),
+                  scale_y_continuous(expand=c(0,0))+
                   labels=c("0","1","2","3","4","5","6")) +
-                  theme(axis.title.y = element_blank())
+                  theme(axis.title.y = element_blank()) 
+                 
+                  
 plotb
+
+#non-linear
+help.poly <- coxph(yrlg.mob ~ HelpNum + I(HelpNum^2), data = yrlg.df1)
+summary(help.poly)
+anova(cx.group, help.poly)
+#no support for this term 
+
 
 #adjust scaling
 multiplot(plota, plotb, cols = 2)
@@ -1059,7 +2266,6 @@ multiplot(plota, plotb, cols = 2)
 sim.help3 <- coxsimLinear(cx.group, b ="HelpNum",
                   qi = "Hazard Ratio", Xj = c(0,6))
 simGG(sim.help3, alpha = 0.4, xlab = "Helper Number")
-#try nonlinear fit
 #predict
 predvals1 <- predict(cx.group, type="risk")
 plot(yrlg.df1$HelpNum, predvals1,
@@ -1067,7 +2273,7 @@ plot(yrlg.df1$HelpNum, predvals1,
 
 
 #Mass and Helper (0,1)
-hlp.mass <- coxph(yrlg.mob ~ Mass + Help, data = yrlg.df1)
+hlp.mass <- coxph(hy.ob ~ Mass + Help, data = yrlg.df1)
 summary(hlp.mass)
 anova(hlp.mass)
 predvals2 <- predict(hlp.mass, type="risk")
@@ -1107,13 +2313,35 @@ temp$SEfit <- prdse$se.fit
 #2 15 2017 add error bars or some measure of uncertainty
 
 # 3 3 2017 Code for publishable figure 
-ggplot(data = temp, aes(x = Mass, y = Risk, group=Help, colour=Help)) +
+#4 15 2017
+
+ggplot(data = temp, aes(x = Mass, y = Risk, group=Help), colour=Help) +
   geom_line(size = 1) +
-  scale_color_manual(values = c("darkgrey", "black")) 
+  xlab("Nestling Mass (g)") + 
+  ylab("Predicted Relative Risk")
+  scale_color_manual(values = c("darkgrey", "black")) +
+  #theme_bw() + 
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_y_continuous(breaks = c(0.6,0.8,1.0,1.2,1.4,1.6,1.8)) +
+    geom_hline(yintercept=1)
   
+### 4 17 2017
 ggplot(data = temp, aes(Mass, Risk, group=Help, colour=Help)) +
-  geom_point(size = 1) +
-  scale_color_manual(values= c("darkgrey", "black"))
+  geom_line(size=1) +
+  scale_color_manual(values= c("darkgrey", "black")) +
+  ylab("Predicted Relative Risk") +
+  xlab("Nestling Mass (g)") +
+  theme_bw() +
+  scale_y_continuous(breaks = c(0.6,0.8,1,1.2,1.4,1.6,1.8)) +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  geom_hline(yintercept=1, lty=2)
+  
 
 ggplot(data = temp, aes(Mass, Risk, group=Help, colour=Help)) +
   geom_point(size = 1) +
@@ -1121,20 +2349,61 @@ ggplot(data = temp, aes(Mass, Risk, group=Help, colour=Help)) +
 
 
 #Mass and Helper number
-hlpn.mass <- coxph(yrlg.mob ~ Mass + HelpNum, data = yrlg.df1)
+hlpn.mass <- coxph(hy.ob ~ Mass + HelpNum, data = yrlg.df1)
 summary(hlpn.mass)
 anova(hlpn.mass)
 predvals3 <- predict(hlpn.mass, type = "risk")
 plot(yrlg.df1$HelpNum, predvals3)
 
+anova(mass.full, hlpn.mass)
+anova(mass.full, hlp.mass)
+
+# 4 15 2017
+
+fit.helpers <- data.frame(predict(hlpn.mass, type = "risk", se.fit=TRUE))
+fit.helpers$HelpNum <- yrlg.df1$HelpNum
+fit.helpers$Mass <- yrlg.df1$Mass
+predframeH <- with(fit.helpers, data.frame(HelpNum, Mass, 
+                  hazard = fit, 
+                  lwr = fit - 1.96*se.fit, 
+                  upr = fit + 1.96*se.fit))
+hlp.plot <- ggplot(predframeH, aes(Mass, hazard), color=HelpNum) +
+  geom_point() + 
+  xlab("Mass(g)") + 
+  ylab("Predicted Relative Hazard") +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  scale_y_continuous(breaks = c(0.8,1.0,1.2,1.4,1.6))
+hlp.plot
 
 #Plot for showing the predicted values of hazard ratio from model of
 #risk as a function of mass and helper number 
 treats <- expand.grid(HelpNum = levels(tmp$HelpNum), 
                       Mass = tmp$Mass)
-temp2 <- treats
-temp2$Risk <- predict(hlpn.mass, temp2, type = "risk")
-qplot(Mass, Risk, data = temp2, colour=HelpNum)
+treats$Risk <- predict(hlpn.mass, type='risk')
+#how to get SE??
+
+# 4 17 2017 FUCK FUCK FUCK FUCK FUCK FUCK 
+ggplot(data = treats, aes(Mass, Risk, group=HelpNum, colour=HelpNum)) +
+  geom_point() + 
+  ylab("Predicted Relative Risk") +
+  xlab("Nestling Mass (g)") +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) +
+  geom_hline(yintercept=1, lty=2)
+
+
+#temp2 <- treats
+treats2 <- data.frame(predict(hlpn.mass, type = 'risk', se.fit=TRUE))
+treats.se <- data.frame(predict(hlpn.mass, type = 'risk', se.fit = TRUE))
+#temp2$Risk <- predict(hlpn.mass, temp2, type = "risk")
+#qplot(Mass, Risk, data = temp2, colour=HelpNum)
+
+str(treats)
 
 
 #interaction between helper number and mass
@@ -1144,6 +2413,7 @@ anova(hlpmni)
 predvals4 <- predict(hlpmni, type="risk")
 plot(yrlg.df1$Mass, predvals4)
 plot(yrlg.df1$HelpNum, predvals4)
+anova(mass.full, hlpn.mass, hlpmni)
 
 #interaction between helpers and mass, does this even make biological sense?
 hlpmi <- coxph(yrlg.mob ~ Mass*Help, data=yrlg.df1)
@@ -1152,8 +2422,17 @@ anova(hlpmi)
 anova(mass.full, hlpmi)
 
 #mom age 
-mha <- coxph(yrlg.mob ~ Mass + HelpNum + momage, data= yrlg.df1)
+mha <- coxph(yrlg.mob ~ Mass + momage + HelpNum, data= yrlg.df1)
 summary(mha)
+anova(mha)
+
+#Help num or age? They are correlated
+new1 <- coxph(yrlg.mob ~ Mass + momage, data = yrlg.df1)
+anova(new1)
+newb <- coxph(yrlg.mob ~ Mass + momexp, data = yrlg.df1)
+anova(newb)
+new2 <- coxph(yrlg.mob ~ Mass + HelpNum, data = yrlg.df1)
+summary(new2)
 
 anova(mass.full, hlp.mass, hlpn.mass, hlpmi, hlpmni)
 
@@ -1181,17 +2460,66 @@ hymods2 <- aictab(Cand.models, Modnames, sort = TRUE,
 hymods
 hymods2
 
+fuck <- coxph(yrlg.mob ~ Mass + momage + HelpNum, data = yrlg.df1)
+anova(new1, fuck)
+
 ########################################################################
 #Territory variables 
 #use yrlg.tob
 
 #PC1 and 2
-cx.pc <- coxph(yrlg.tob ~ PC1 + PC2, data = flg.sub1)
+cx.pc <- coxph(yrlg.tob ~ PC1 + PC2, data = flg.sub2)
 summary(cx.pc)
-cx.pc1 <- coxph(yrlg.tob ~ PC1, data = flg.sub1)
+cx.pc1 <- coxph(yrlg.tob ~ PC1, data = flg.sub2)
 summary(cx.pc1)
 
 anova(cx.pc1, cx.pc)
+
+mpc1 <- coxph(yrlg.tob ~ Mass + PC1, data = flg.sub2)
+summary(mpc1)
+
+fit.pc1 <- data.frame(predict(cx.pc1, type="risk", se.fit=TRUE))
+fit.pc1$PC1 <- flg.sub2$PC1
+colnames(fit.pc1)[3] <- "PC1"
+predframe.PC1 <- with(fit.pc1, data.frame(PC1, hazard=fit, 
+      lwr = fit - 1.96*se.fit, upr = fit + 1.96*se.fit))
+
+##4 17 2017 as long as this is correct, then this is nice 
+pA <- ggplot(predframe.PC1, aes(PC1, hazard)) +
+  geom_line()
+pA + ylim(0,2) +
+  xlab("PC1") +
+  ylab("Predicted Relative Risk") + 
+  theme_bw() +
+  geom_hline(yintercept= 1.0, linetype = 2) +
+  geom_ribbon(data = predframe, aes(ymin=lwr, ymax=upr), alpha = 0.2) +
+  theme(panel.grid.major.y = element_blank(), 
+        panel.grid.major.x=element_blank()) +
+  theme(panel.grid.minor.x = element_blank()) +
+  theme(panel.grid.minor.y = element_blank()) 
+
+mmpc <- coxph(yrlg.tob ~ Mass + PC1 + momexp, data = flg.sub2)
+summary(mmpc)
+anova(mmpc)
+bb <-coxsimLinear(mmpc, "momexp", qi = "Relative Hazard", Xj = c(1,15))
+simGG(bb)
+pc1 <- coxsimLinear(mmpc, "PC1", qi = "Relative Hazard", 
+                    Xj = c(-2.8, 7.6))
+simGG(pc1)
+
+mpch <- coxph(yrlg.tob ~ Mass + PC1 + HelpNum, data = flg.sub2)
+summary(mpch)
+anova(mpch)
+
+mmpch <- coxph(yrlg.tob ~ Mass + PC1 + momexp + HelpNum, data = flg.sub2)
+summary(mmpch)
+
+mmphint <- coxph(yrlg.tob ~ Mass + PC1 + HelpNum + PC1*HelpNum, data = flg.sub2)
+summary(mmphint)
+
+anova(mpc1,mmphint, mmpc, mmpch)
+
+
 
 ##########################################################################
 # Regression with each terr variable, need to use pcs as predictors 
@@ -1255,35 +2583,169 @@ anova(cx.size, sz.hlp2)
 #######################################################################
 ## Mixed effects cox models
 
+yrlg.dfA <- subset(yrlg.df1, yrlg.df1$USFWBand %in% new.df$USFWBand)
+mob.A <- Surv(yrlg.dfA$Days, yrlg.dfA$Censor, type = c('right'))
+
+yrlg.dfA$HelpNum <- as.numeric(yrlg.dfA$HelpNum)
+## 5 31 2017 
+yr.hlp <- coxme(mob.A ~ Mass + HelpNum + (HelpNum|Year),data=yrlg.dfA)
+
 #ID as random effect, no fixed effect - KEEP 3/21/2017
-kin1 <- coxme(yrlg.mob ~ (1|USFWBand), data = yrlg.df1, 
+kin1 <- coxme(mob.A ~ (1|USFWBand), data = yrlg.dfA, 
               varlist = coxmeMlist(kins))
 summary(kin1)
+kin2 <- coxme(mob.A ~ (1|USFWBand) + (1|Year), data = yrlg.dfA, 
+              varlist = coxmeMlist(kins))
+summary(kin2)
+anova(kin1, kin2)
 #Add mass as fixed effect
-kin.mass <- coxme(yrlg.mob ~ Mass + (1|USFWBand), data = yrlg.df1,
-                 varlist = coxmeMlist(kins))
-summary(kin.mass)
-
+#kin.mass <- coxme(mob.A ~ Mass + (1|USFWBand), data = yrlg.dfA,
+                 #varlist = coxmeMlist(kins))
+flg.sub1 <- flg.sub %>% drop_na(24,25,26,27,28,29,30,31,32)
+yrlg.dfA <- yrlg.dfA %>% drop_na(22)
+mob.sub <- Surv(yrlg.dfA$Years, yrlg.dfA$Censor, type =c('right'))
+kin.massyr <- coxme(mob.sub ~ Mass + (1|USFWBand) + (1|Year), data = yrlg.dfA, 
+                    varlist = coxmeMlist(kins))
+summary(kin.massyr)
+anova(kin2, kin.massyr)
+anova(kin1, kin2, kin.massyr)
+#anova(kin.mass)
 ## Add mom age
-kin.mage <- coxme(yrlg.mob ~ Mass + momage + (1|USFWBand) + (1|Year), 
-                  data = yrlg.df1, varlist = coxmeMlist(kins))
+kin.mage <- coxme(mob.A ~ Mass + momage + (1|USFWBand) + (1|Year), 
+                  data = yrlg.dfA, varlist = coxmeMlist(kins))
 summary(kin.mage)
+anova(kin.massyr, kin.mage)
 
-kin.mexp <- coxme(yrlg.mob ~ Mass + momexp + (1|USFWBand) + (1|Year),
-                  data = yrlg.df1, varlist = coxmeMlist(kins))
+kin.mexp <- coxme(mob.sub ~ Mass + momexp + (1|USFWBand) + (1|Year),
+                  data = yrlg.dfA, varlist = coxmeMlist(kins))
 summary(kin.mexp)
 
-kin.mah <- coxme(yrlg.mob ~ Mass + momage + HelpNum + (1|USFWBand) +
-                   (1|Year), data = yrlg.df1, varlist = coxmeMlist(kins))
+#### Decent fitting model 4 7 2017
+kin.mah <- coxme(mob.A ~ Mass + momage + HelpNum + (1|USFWBand) +
+                   (1|Year), data = yrlg.dfA, varlist = coxmeMlist(kins))
 summary(kin.mah)
 anova(kin.mage, kin.mah)
+#Helpers add ever so slightly better fit, just below the general rule
+#for interpreting these types of statistics 
 
-kin.maep <- coxme(yrlg.mob ~ Mass + momage + momexp + (1|USFWBand) +
-                    (1|Year), data = yrlg.df1, varlist = coxmeMlist(kins))
+#### Decent fitting model 4 7 2017
+kin.e2 <- coxme(mob.sub ~ Mass + momexp + HelpNum + (1|USFWBand) +
+                  (1|Year), data = yrlg.dfA, varlist = coxmeMlist(kins))
+summary(kin.e2)
+anova(kin.e2)
+
+anova(kin.massyr, kin.mexp, kin.e2)
+#anova(kin.e2)
+anova(kin.mexp, kin.e2)
+
+anova(kin.mexp, kin.e2)
+
+#not run 4 7 2017
+#not convinced interaction adds anything 4 7 2017
+kin.int <- coxme(mob.A ~ Mass + momage + HelpNum + momage:HelpNum +
+          (1|USFWBand)  + (1|Year), data = yrlg.dfA, 
+                 varlist = coxmeMlist(kins))
+summary(kin.int)
+#no support for interaction 
+
+###############################################################################
+###### Want one or the other in these models, colinearity here 4 7 2017
+## There are more or less equivalent, use experience I think 
+kin.maep <- coxme(yrlg.mob ~ Mass + momage + momexp + momage*momexp+
+          (1|USFWBand) + (1|Year), data = yrlg.df1, varlist = coxmeMlist(kins))
+summary(kin.maep)
+
+
+kin.age.mom <- coxme(yrlg.mob ~ Mass + momage + momexp + HelpNum +
+                (1|USFWBand) + (1|Year), data = yrlg.df1,
+                varlist = coxmeMlist(kins))
+
+kin.mass.exp <- coxme(yrlg.mob ~ Mass + momage + momexp + HelpNum +
+                  Mass:momexp + (1|USFWBand) + (1|Year), data = yrlg.df1, 
+                  varlist = coxmeMlist(kins))
+anova(kin.mah, kin.maep, kin.age.mom, kin.mass.exp)
+
+#coxme(yrlg.mob ~ Mass + momexp + HelpNum)
+
+###########################################################################
+#kinship, year, mass and principal component 1 (terr size)
+#remember that this is a smaller data set (N=1529) and cannot be compared 
+#to models with the larger data set (N = 2323)
+
+#### April 8 2017
+kin.t.mass <- coxme(yrlg.tob ~ Mass + (1|USFWBand) + (1|Year),
+                    data = flg.sub2, varlist = coxmeMlist(kins))
+summary(kin.t.mass)
+
+kin.terr <- coxme(yrlg.tob ~ Mass + PC1 + (1|USFWBand) + (1|Year), 
+                  data = flg.sub2, varlist = coxmeMlist(kins))
+summary(kin.terr)
+
+kin.terrh <- coxme(yrlg.tob ~ Mass + PC1 + HelpNum + (1|USFWBand) + (1|Year),
+                   data = flg.sub2, varlist = coxmeMlist(kins))
+summary(kin.terrh)
+anova(kin.t.mass, kin.terr, kin.terrh)
+
+kin.mom.t <- coxme(yrlg.tob ~ Mass + PC1 + momage + (1|USFWBand) + (1|Year),
+                   data = flg.sub2, varlist= coxmeMlist(kins))
+summary(kin.mom.t)
+anova(kin.t.mass,kin.terr, kin.mom.t)
+
+kin.mom.exp <- coxme(yrlg.tob ~ Mass + PC1 + momexp +
+                       (1|USFWBand) + (1|Year), 
+                     data =flg.sub2, varlist=coxmeMlist(kins))
+summary(kin.mom.exp)
+anova(kin.t.mass, kin.terr, kin.mom.exp)
+
+kin.mom.th <- coxme(yrlg.tob ~ Mass + PC1 + momage + HelpNum + 
+                      (1|USFWBand) + (1|Year), data= flg.sub2, 
+                    varlist= coxmeMlist(kins))
+summary(kin.mom.th)
+
+kin.mom.eh <- coxme(yrlg.tob ~ Mass + PC1 + momexp + HelpNum + 
+                      (1|USFWBand) + (1|Year), data = flg.sub2, 
+                    varlist = coxmeMlist(kins))
+summary(kin.mom.eh)
+
+anova(kin.terr, kin.terrh, kin.mom.exp, kin.mom.th, kin.mom.eh)
+anova(kin.terr, kin.mom.exp)
+anova(kin.terr, kin.mom.exp, kin.mom.eh, int.pc)
+
+library(corrplot)
+covars2 <- flg.sub2[,c(19,22,23,33)]
+colnames(covars2) <- c("HelpNum","MomExp","MomAge","PC1")
+corrs2 <- cor(covars2, use="complete.obs")
+corrplot(corrs2, method="pie", type= "lower")
+
+#Interaction of helper number and PC1
+int.pc <- coxme(yrlg.tob ~ Mass + PC1 + momexp + HelpNum + 
+      HelpNum*PC1 + (1|USFWBand) + (1|Year), data = flg.sub2,
+      varlist = coxmeMlist(kins))
+
+anova(kin.terr,kin.terrh,kin.mom.t)
+anova(kin.terr, kin.mom.t)
+anova(kin.terr, kin.terrh)
+anova(kin.terr, kin.mom.th)
+
+anova(kin.terr, kin.mom.exp, kin.mom.eh)
+####################################################################
+# 4 8 2017 old 
+summary(kin.mom.th)
+anova(kin.terrh, kin.mom.t, kin.mom.th)
+
+kin.h <- coxme(yrlg.tob ~ Mass + HelpNum + (1|USFWBand) + (1|Year),
+               data = flg.sub2, varlist = coxmeMlist(kins))
+summary(kin.terr)
+summary(kin.h)
 summary(kin.maep)
 #asses fit of adding mass 
 anova(kin1, kin.mass, test = "chisq")
 #model with mass better
+
+
+
+april7 = new.env(hash = TRUE, parent = .GlobalEnv)
+saveRDS(april7, file = "ErinApril7.RData")
 
 #Add helper (0,1)
 kin.help <- coxme(yrlg.mob ~ Mass + Help + (1|USFWBand), data = yrlg.df1,
