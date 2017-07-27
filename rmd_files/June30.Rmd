@@ -1,0 +1,155 @@
+---
+title: "June 30 2016"
+author: "Erin Feichtinger"
+date: "June 28, 2016"
+output: pdf_document
+---
+
+Is it really the last day of June?!? Summer is just rolling right along. Anyway, here is a brief summary of what we talked about last Thursday (June 23). 
+
+### Meeting summary 6/23/2016
+We talked about the growth heterogeneity project and manuscript. Gordon and Bruce are going to take over on the project (although I will still be involved) to do more analyses so it can make a more significant contribution by appearing in a better journal. You have no argument from me on this! As far as the work I've done so far, it is close to being an acceptable dissertation chapter. Gordon's instructions are to finish the draft incorporating Bruce's comments from earlier this year then send it to him. I have done most of that work already in the past few months so it won't take much to finish this task. After this is done, the committee can see it.  
+
+### Florida Scrub Jay Survival 
+I have spent some time in the past few months fitting simple survival and hazard models to the data including the Kaplan-Meier estimate and survival curve, Cox PH models and AFT models with just a few predictors (sex, cohort year, age at first breeding) using two subsets of data. First I used all known age birds from 1981 to 2015 with no regard to stage and I used data from breeders of known and unknown ages from 1981-2015. I found that the KM curves between the sexes of breeders were very similar until the end of life when the female curve drops below the male curve. For all known age birds, the KM curves for each sex overlap only at the very beginning of life (< 1 year) then the curves separate with female cumulative survival lower than the males. I fit Cox PH models and AFT models to the data for both subsets (breeders and all birds) using sex and cohort year as predictors, as well as age at first breeding for the breeders.  
+
+#### Cox PH and AFT model results 
+##### All known age birds 
+The first Cox model I fit had sex as the only predictor. The coefficient for sex(male) is negative, meaning being male reduces your hazard. In other words, males have a lower risk than females. 
+
+Coefficient | Estimate | exp(coef)
+----------- | -------- | ----------
+Sex (male)  | -0.18013 | 0.83516
+
+The p-value associated with this estimate is <0.001 although R^2 = 0.008. The exponent of the coefficient can be interpreted as the reduction in hazard experienced by males relative to females. Males have about a 16% reduction in hazard/risk of dying. So this model tells us that females have a higher risk of dying than males. However, in this model, there is no regard to stage. Based on the biology of jays, I think that there could be hidden patterns by not considering stage.  The AFT model with a Weibull distribution gave similar results to the Cox model. The coefficient for males is positive, which in these models means that being male increases failure time/time to death, thus females are expected to fail at an accerlated rate compared to males. The sign of coefficients should be opposite between the Cox and AFT models. The term for sex is significant for this model, too.  
+
+Other models fit include using cohort year as a predictor. There is a lot of variation year to year. R^2 was about .20 in this model. The model with both sex and cohort year had a lower AIC than the models with each of the single predictors. In this approach, year is coded as a factor thus there is an estimate for each year and it uses 34 degrees of freedom. The next step is to use frailty models. The AFT models gave similar results. 
+
+##### Breeders of known and unknown age
+I used a similar approach with the breeders but added a predictor, age at first breeding. The KM curves for male and female breeders are similar until around age 9 then they start to separate. The first Cox model I fit had sex as the only predictor. The coefficient for sex (male) was negative but not significant. Then I added age at first breeding. This predictor is significant with a postive sign, meaning it increases hazard. However, we can't tell if breeding at an older age actually increases your risk compared to younger breeders, or if it simply means you are closer to the end of the lifespan. Like the all birds data, the model with cohort year (year of first breeding) was significant and R^2 = 0.24. So, there is a lot of year to year variation in hazard. This we expected. The main point here is that the model with age at first breeding and cohort year had the lowest AIC at 11221.19 but the model with all three predictors had an AIC of 11222.59. There were no interactions in these models. The AFT model with the lowest AIC score was the model with age at first breeding, sex and cohort year as predictors. Males have an increased failure time and for these models, the coefficient estimate for sex has an associated p = 0.07.  
+
+I think the best way to summarize this groundwork is to say that survival could be different between the sexes, but we need to look at each stage separetly because using all birds could hide patterns. There is a lot of year to year variation so building frailty models is a good idea to have a frailty term for year. The predictors I used (no interactions) are insufficient to understand the patterns of hazard in the jay population.  
+
+Additional Predictors
+1. Pedigree
+2. Group size in April 
+3. Amount of oak scrub in territory 
+4. Amount of territory in optimal fire window (1-9 years)
+5. Natal nest ID or Brood size for first year birds 
+
+
+#### Models of hazard by stage 
+Because I found that the KM curves for sex are different for birds across all stages and the curves are not different for breeders, there must be some stage in the life cycle before breeding where the sexes do experience a different risk of dying. Using the data set with all known age birds without regard to stage serves as a good reference point but now I've moved on to modeling each stage.  
+
+1. First year birds - date fledged to the following April or death
+2. Prebreeders/Helpers - one year after fledge date to death or becoming a breeder
+3. Breeders - date became breeder to death or still alive as of the April 2016 census
+
+To begin this approach, I started with the KM survival curves and simple models with sex as the only predictor. 
+
+```{r, echo = FALSE}
+library(survival)
+library(car)
+library(coxme)
+
+bird.df <- read.csv("Erin_June_All_Birds.csv")
+bird.df<- bird.df[!duplicated(bird.df),]
+
+colnames(bird.df)[8] <- "Days"
+bird.df["Yrs"] <- bird.df$Days/365.25
+
+## convert dates to date format
+bird.df$FldgDate <- as.Date(bird.df$FldgDate, format = "%m/%d/%Y")
+bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
+
+bird.df["Censor"] <- 1
+#Birds that are right censored (indicated by 0) are still alive after 1 year
+#post fledgling 
+bird.df$Censor[which(bird.df$Yrs > 1)]<-0
+bird.df<- subset(bird.df, bird.df$Yrs > 0)
+#subset to get rid of years less than 0
+yrlg.df <- subset(bird.df, bird.df$Yrs > 0)
+
+#change back to numeric for survival object 
+yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
+yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
+
+#survival object 
+yrlg.ob <- Surv(yrlg.df$Yrs, yrlg.df$Censor, type = c('right'))
+
+my.fit <- survfit(yrlg.ob~1, conf.type = "log-log")
+
+plot.fit <- plot(my.fit, xlab = "Time (years)",
+      log = "y", ylim = c(0.4, 1),xlim=c(0,1), ylab = "Cumulative Survival", 
+                   main = "Yearlings")
+my.fit2 <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
+plot.sex <- plot(my.fit2, xlab="years", log="y",  ylim = c(0.4, 1),xlim=c(0,1),
+                 ylab = "survival", main = "Yearlings by sex")
+```
+
+
+The first figure is the KM curve for all yearlings with 95% CI. There is a steeper slope at the very beginning which makes sense then it the slope is less steep as the year goes by. Between the period of 1981 and 2016, about half of all fledglings produced died. Rough life.  
+The second figure shows the KM curves by sex. The lines are very similar until right before the first year. 
+
+```{r}
+## Cox PH model with sex as a predictor 
+cx.yrl <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
+cx.yrl
+summary(cx.yrl)
+
+#Check PH assumption
+cox.zph(cx.yrl)
+plot(cox.zph(cx.yrl))
+```
+
+I fit a Cox PH model (assuming the hazards between males and females are proportional over time) with sex as a predictor. The sign of the coefficient for sex is negative but the p value is 0.49 and the reduction in hazard by being a male is only about 4%. However, the weird thing here is that the assumption of proportional hazards is violated here. The plot of the scaled Schoenfield residuals gives evidence that the hazards are not proportionl. I think the interpretation is that solid line will be flat or nearly so if the hazards are proportional. The line is not flat. So, even though the sexes are siginficantly different in hazard, the hazard of each group relative to each other changes during the first year? I'm not sure what this means.
+
+Now to the prebreeder stage. I'm having some trouble setting up these data but I have a plan of how to get birds in the helper stage only. So, for now, this data subset has prebreeders and breeders. 
+
+```{r, echo=FALSE}
+bird.df <- read.csv("Erin_June_All_Birds.csv")
+bird.df<- bird.df[!duplicated(bird.df),]
+
+colnames(bird.df)[8] <- "Days"
+bird.df["Yrs"] <- bird.df$Days/365.25
+
+## convert dates to date format
+bird.df$FldgDate <- as.Date(bird.df$FldgDate, format = "%m/%d/%Y")
+bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
+
+prebrdr <- subset(bird.df, Days >= 365)
+
+prebrdr$FldgDate <- as.Date(prebrdr$FldgDate, format = "%m/%d/%Y")
+prebrdr$LastObsDate <- as.Date(prebrdr$LastObsDate, format = "%m/%d/%Y")
+
+prebrdr["Censor"] <- 1
+## If years lived is less than 1, dead
+prebrdr$Censor[which(prebrdr$LastObsDate =="2016-4-12")] <- 0
+
+## Change back to numeric for survival object 
+prebrdr$FldgDate <- as.numeric(prebrdr$FldgDate)
+prebrdr$LastObsDate <- as.numeric(prebrdr$LastObsDate)
+
+pre.ob <- Surv(prebrdr$Yrs, prebrdr$Censor, type =c('right'))
+
+#KM curve 
+pre.fit <- survfit(pre.ob~1, conf.type = "log-log")
+
+#Km curve by sex
+sex.fit <- survfit(pre.ob~ Sex, data = prebrdr)
+sex.plot <- plot(sex.fit, log="y", xlim = c(1,14), ylim=c(0.01,1), xlab = "Time (years)", 
+                 ylab = "Cumulative Survival", main="KM Curves by Sex")
+
+model1 <- coxph(pre.ob ~ Sex, data = prebrdr)
+summary(model1)
+
+cox.zph(model1)
+plot(cox.zph(model1))
+
+```
+
+Remember that this subset of data includes prebreeders and breeders so it's not quite what I want but it is still useful. The KM curves for males and females are different for the entire time period. This is interesting because when we look at breeders only, the KM curves for males and females are similar until the end of life. Thus, the prebreeder stage is where the hazard/risk of dying is different between the sexes. I fit a cox model with sex as a predictor. The output shows us that the coefficient for sex(male) is negative meaning a reduced risk for males. Exp(coef) is 0.723 with a p value <0.001. This means that males have a 27 % reduction in risk relative to females. Of course, the actual estimate for the helper stage only could be different so keep that in mind. However, it does tell us that there is a period of life (helper stage) where sex is important in determining the probability of survival or risk of dying. I'd say this is sufficient evidence that modeling the birds by stage is a good idea and that sex has the most importance during the pre-breeder stage. Another interesting point is that the hazards are not proportional over time. Looking at the plot of the residuals, we see that the solid line is not flat. It's not shown here, but the assumption of proportional hazards is violated when modeling all birds regarldess of stage BUT it is met when breeders are modeled alone. Interesting stuff. 
+
+Gordon and I chatted about the next steps and some interesting questions that arise from this "groundwork". The general plan is to fit frailty models and construct the time-varying models. I also have some work to do on getting all of the other predictors in usable format. I started working on the pedigree but the problem that I am running into is designating the founders of the pedigree. I also attempted to get mass for day 11 and independence but writing the query is a little tricky. Some birds were measured multiple times as independents/juveniles for various projects but it's hard to tell which date should be used. Probably the earliest one for each bird with multiple independent mass measurements. There is probably a way in R that I can remove records for the same bird and keep the earliest date for a mass measurement for an independent. Group size each April is also tricky to connect to my queries that have the dates of fledging and last observed. 
+
+The territory veg and fire data are in separate Excel files. There needs to be some work done to these data too but it is more straightforward. 

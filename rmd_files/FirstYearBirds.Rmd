@@ -1,0 +1,214 @@
+---
+title: "First Year Birds"
+author: "Erin Feichtinger"
+date: "July 1, 2016"
+output: html_document
+---
+
+## Models and results for first year birds
+First year birds include all known age birds from fledge date to 365 days later or following April census, or last observed date. 
+
+The data I'm using is birds fledged after 1/1/1981 to April 2015 because the birds that fledged last year can be included but ones that fledge this year are not. 
+
+First, I started with the Kaplan Meier non-parametric estimates of survival and produced survival curves for all birds and separated by sex. Then, I built some Cox Proportional Hazards models with a few predictors: sex, brood size, and cohort year. 
+
+```{r, echo = false}
+library(survival)
+library(car)
+library(coxme)
+library(kinship2)
+library(SurvRegCensCov)
+library(parfm)
+
+## Read in April Census Dates
+aprilD <- read.csv("April_Census_Dates.csv")
+
+## Convert to date object
+aprilD$CensusDate <- as.Date(aprilD$CensusDate, format = "%m/%d/%Y")
+
+## This is the full data set with all known age birds 
+bird.df <- read.csv("Erin_June_All_Birds.csv")
+bird.df<- bird.df[!duplicated(bird.df),]
+bird.df$ClutchNum <- as.numeric(bird.df$ClutchNum)
+
+str(bird.df)
+
+## Change column name to Days for days lived and add a year column
+colnames(bird.df)[8] <- "Days"
+bird.df["Yrs"] <- bird.df$Days/365.25
+
+## convert dates to date format
+bird.df$FldgDate <- as.Date(bird.df$FldgDate, format = "%m/%d/%Y")
+bird.df$LastObsDate <- as.Date(bird.df$LastObsDate, format = "%m/%d/%Y")
+
+## add column for censorship status, in survival package - 0=alive, 1=dead
+bird.df["Censor"] <- 1
+#Birds that are right censored (indicated by 0) are still alive after 1 year
+bird.df$Censor[which(bird.df$Yrs > 1)]<-0
+
+year <- as.POSIXlt(bird.df$FldgDate)$year+1900
+bird.df["FYear"] <- year
+bird.df$FYear <- as.factor(bird.df$FYear)
+
+#subset to get rid of years less than 0
+yrlg.df <- subset(bird.df, bird.df$Yrs > 0 & bird.df$Days > 0)
+
+#change back to numeric for survival object 
+yrlg.df$FldgDate <- as.numeric(yrlg.df$FldgDate)
+yrlg.df$LastObsDate <- as.numeric(yrlg.df$LastObsDate)
+
+#survival object 
+yrlg.ob <- Surv(yrlg.df$Yrs, yrlg.df$Censor, type = c('right'))
+
+my.fit <- survfit(yrlg.ob~1, conf.type = "log-log")
+my.fit
+str(my.fit)
+
+## Plot survival curve from KM estimate (my.fit)
+plot.fit <- plot(my.fit, xlab = "Time (years)",
+        log = "y", ylim = c(0.4, 1),xlim=c(0,1), ylab = "Cumulative Survival", 
+        main = "Yearlings")
+
+## KM for sex 
+my.fit2 <- survfit(yrlg.ob ~ yrlg.df$Sex, conf.type = "log-log")
+my.fit2
+str(my.fit2)
+
+plot.sex <- plot(my.fit2, col = c("navy","red"),
+                 xlab="years", log="y",  ylim = c(0.4, 1),xlim=c(0,1),
+                 ylab = "survival", main = "Yearlings by sex")
+legend("topright", c("Females","Males"), col=c("navy","red"),
+       lty = c(1,2),lwd=1)
+
+```
+
+
+The first figure is cumulative survival over one year (log scale) with 95% confidence envelope around the curve. It starts out steep then the slope becomes less steep approaching 1 year. About 1/2 of all fledglings produced between 1981 and 2015 died before reaching the following April census. Rough life.  
+
+The second figure is cumulative survival over one year (log scale) but with curves for males and females. The curves are very similar until right before the one year mark where female cumulative survival falls below that of males.
+
+```{r}
+## Cox PH Models
+
+# Model 1 with sex as only predictor
+cx.yrl <- coxph(yrlg.ob ~ Sex, data = yrlg.df)
+summary(cx.yrl)
+cox.zph(cx.yrl)
+
+```
+
+
+The first Cox PH model that I fit was sex as the single predictor. The model output shows us that the coefficient for sex(male) is not significant. The sign is negative indicating that males have a lower hazard, but the reduction in hazard is only about 4% compared to females. 
+
+The output below the model output is a test for proportional hazards. This indicates that the hazards are proportional throughout the year until the very end of the period. 
+
+```{r}
+# Model 2 with clutch size as single predictor 
+cx.yrl2 <- coxph(yrlg.ob ~ ClutchNum, data = yrlg.df)
+summary(cx.yrl2)
+cox.zph(cx.yrl2)
+```
+
+
+The second model has brood size as the single predictor. The coefficient for this is significant and the sign is positive, meaning larger broods increase your hazard by about 9%. The likelihood ratio tests indicate that this model is a better fit than a model with no predictors. Here again, the hazards seem to be proportional. 
+
+```{r}
+# Model 3 with clutch size and sex, no interaction
+cx.yrl3 <- coxph(yrlg.ob ~ Sex + ClutchNum, data = yrlg.df)
+summary(cx.yrl3)
+cox.zph(cx.yrl3)
+```
+
+
+The thrid model has brood size and sex (no interactions) as predictors. Sex is not significant but brood size is. Both terms have the same sign as the models when they are the single predictors. 
+
+```{r}
+# Model 4 interaction between clutch size and sex
+cx.yrl4 <- coxph(yrlg.ob ~ ClutchNum + Sex + ClutchNum*Sex, data = yrlg.df)
+cx.yrl4
+cox.zph(cx.yrl4)
+```
+
+
+The fourth model is the interaction between sex and brood size. Only brood size is significant with a positive sign. 
+
+```{r}
+# Model 5 cohort year as factor
+cx.yrl5 <- coxph(yrlg.ob ~ FYear, data = yrlg.df)
+cox.zph(cx.yrl5)
+
+# Model 6 cohort year and clutch size 
+cx.yrl6 <- coxph(yrlg.ob ~ FYear + ClutchNum, data = yrlg.df)
+cox.zph(cx.yrl6)
+
+# Model 7 cohort year, clutch size and sex
+cx.yrl7 <- coxph(yrlg.ob ~ FYear + ClutchNum + Sex, data = yrlg.df)
+cox.zph(cx.yrl7)
+```
+
+
+Models 5, 6 and 7 all have cohort year but it is coded as a factor and the output is really long since there is an estimate for each year. The coefficients for some years are significant and some years have a positive sign (meaning that year is riskier) and others have a negative sign (meaning that year is less risky than other years). The takeaway here is that there is a lot of year to year variation which is expected. 
+
+Model 5 had cohort year as the only predictor, model 6 added brood size and model 7 added sex, so model 7 has all three predictors. 
+
+```{r}
+## Get AIC for models 1-7
+extractAIC(cx.yrl)
+extractAIC(cx.yrl2)
+extractAIC(cx.yrl3)
+extractAIC(cx.yrl4)
+extractAIC(cx.yrl5)
+extractAIC(cx.yrl6)
+extractAIC(cx.yrl7)
+```
+
+
+Using Cox PH models for cohort year is not ideal because it uses so many degrees of freedom. However, we can still examine AIC for each of the 7 models. Models 5, 6, and 7 have similar AIC values: 16824.86, 16823.25, 16822.56, respectively. My understanding is the difference between these three is not enough to say which model is better (i.e. they are indistinguishable as far as which one fits better). 
+
+Other possible approaches to modeling an effect of cohort year is to use mixed effects Cox models or frailty models. 
+
+I started working with the mixed effects Cox models. I used cohort year (year of fledging) as the random effect and brood size or sex for the fixed effect in the two models. 
+
+```{r}
+mm1 <- coxme(yrlg.ob ~ ClutchNum + (1|FYear), data = yrlg.df)
+mm2 <- coxme(yrlg.ob ~ Sex + (1|FYear), data = yrlg.df)
+mm1
+mm2
+```
+
+The main take away here is that there is a large variance across years in hazard/risk of dying. The assumption is that everyone starts out with a frailty of 1.00. The standard deviation estimate is 0.9, which is very large relative to 1.00. Brood size is significant and larger broods increase hazard by about 6%. The coefficient for sex is not significant but the reduction of hazard is a little larger than in the Cox PH models, about 8% here and 4% with the Cox PH models. 
+
+```{r}
+#Frailty models using functions in the survival package 
+f1 <- coxph(yrlg.ob ~ Sex + ClutchNum + 
+              frailty(FYear, dist='gamma'), data = yrlg.df)
+summary(f1)
+f2 <- coxph(yrlg.ob ~ ClutchNum + frailty(FYear, dist='gamma'), data = yrlg.df)
+summary(f2)
+extractAIC(f1)
+extractAIC(f2)
+```
+
+I'm not quite sure what this output means. The variance is high for the random effect (year) which agrees with the result of the mixed effects cox model. 
+
+### Summary of findings for birds in their first year (so far)
+1. About half of all fledglings that fledged between 1981 and 2015 died before their first birthday. 
+2. There is a small difference in hazard between the sexes (about a 4% increase in hazard by being female). The hazards between males and females are proportional until the end of the one year period. 
+3. There is a lot of variation from year to year in increasing or decreasing hazard. Not surprising, some years are good and others are bad for whatever reasons (food availability, weather, predator abundance, etc). 
+4. The frailty term for year is significant and the variance of this term is 0.777. 
+
+### Next Steps 
+
+The next thing to do is read the coxme paper and figure out if we can use the method where more than one frailty term can be used. 
+
+There are other predictors that I want to add to the models including territory quality "mertics" (amount of scrub and amount of territory in optimal TSF window), group size in April year of fledging, day 11 mass, independent mass and pedigree. 
+
+I've tried to make a pedigree object in R using the kinship2 package. The problem that I have run into is specifying the founders. I have to find the founders somehow. I have an idea and using the database to figure this out. Gordon also recommended making up a small dataset similar in structure to the jays to understand how to specify the founders properly with the pedigree function in R. So really the challenge is finding the identity of the jay founders. 
+
+I also have to do some work to the territory veg and tsf data to get it in a useable format for modeling. 
+
+I've started to get day 11 mass and mass at independence but it's a little tricky in the database. The day 11 mass is straightforward because generally there is just one measurement per bird. However, some birds were measured multiple times as independents. I guess I would take the earliest measurement date at the status "independent".
+
+The last problem is getting group size in April of fledge year. Related to this, I haven't been able to figure out how to match the fledge date to the following April census. I used 365.25 days after fledgling as the interval end. I'm not sure that this actually matters because most birds fledge after April anyway so using 365.25 (account for leap years) seems alright. The birds will definietly have made it to the April census if they all fledged in May/June since 365.25 days later is after April. 
+
+

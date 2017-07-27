@@ -1,0 +1,180 @@
+---
+title: "Survival Continued"
+author: "Erin Feichtinger"
+date: "Tuesday, February 23, 2016"
+output: html_document
+---
+
+```{r, echo = FALSE}
+setwd("C:/Users/Erin/LittleBlueDinos")
+
+library(survival)
+library(car)
+library(kinship2)
+library(SurvRegCensCov)
+
+##Read in CSV file of male and female breeders with mulitple rows for each bird
+bird.df <- read.csv("Breeders_Fall.csv")
+
+#remove duplicates  - for years where there was more than one nest in a year
+jay.df<- bird.df[!duplicated(bird.df),]
+head(jay.df)
+
+colnames(jay.df)[5] <- "MinDate"
+
+#convert dates to date format
+jay.df$MinDate <- as.Date(jay.df$MinDate, format = "%m/%d/%Y")
+jay.df$LastObsDate <- as.Date(jay.df$LastObsDate, format = "%m/%d/%Y")
+
+#subtract dates to get number of days
+date.diff<- jay.df$LastObsDate-jay.df$MinDate
+
+#and survival period in years, account for leap year 
+jay.df["Yrs"] <-as.numeric(date.diff/365.25)
+
+#very important piece of code for the model to work properly, remove any 
+#weird entries like birds that have negative years of experience or a negative
+#survival interval 
+jay.df <- subset(jay.df, jay.df$Yrs > 0)
+
+
+#add column for censorship status, in survival package - 0=alive, 1=dead
+jay.df["censorship"] <- 1
+#If last observed date = 10/14/2015, 0 for still alive today
+jay.df$censorship[which(jay.df$LastObsDate=="2015-10-14")]<-0
+
+jay.df$FirstYr <- as.factor(jay.df$FirstYr)
+str(jay.df)
+#change back to numeric for survival object 
+jay.df$MinDate <- as.numeric(jay.df$MinDate)
+jay.df$LastObsDate <- as.numeric(jay.df$LastObsDate)
+jay.df$Yrs <- as.numeric(jay.df$Yrs)
+
+#Create survival object  
+jay.ob <- Surv(jay.df$Yrs, jay.df$censorship, type =c('right'))
+jay.lifetab <- survfit(jay.ob~1, conf.type = "log-log")
+jay.fit <- plot(jay.lifetab, xlab = "Time (years)", 
+          ylab = "Cumulative Survival", main = "FL Scrub Breeder survival")
+#Log scale
+jay.fitlog <- plot(jay.lifetab, xlab = "Time (years)",
+        log = "y", ylim = c(0.001,2), ylab = "Cumulative Survival", 
+            main = "FL Scrub Breeder survival Log Scale")
+#Grouping by sex - following example "Cox Regression in R" J. Fox
+km.sex <- survfit(jay.ob ~ jay.df$Sex, conf.type = "log-log")
+km.fit <- plot(km.sex, col=c("navy","red"), xlab = "Time (years)", 
+               ylab = "Survival", main = "Survival by Sex")
+legend("topright", c("Females","Males"), col = c("navy","red"), 
+       lty = 1, lwd = 1)
+
+#Log scale
+sex.log <- plot(km.sex, col = c("navy","red"), log = "y", ylim = c(0.001,2),
+      xlab = "Time (years)",ylab = "Cumulative Survival", 
+      main = "Survival by Sex Log Scale")
+legend("topright", c("Females","Males"), col = c("navy","red"), 
+       lty = 1, lwd =1)
+
+```
+
+The KM curves for males and females do not seem different. Sex can be a covariate in the models so let's move on to model fitting. Two approaches are used here; Cox proportional hazard and accerlated failure time models. Both types of models relate time to event (survival time) to covariates. The Cox model is semi-parametric and the baseline hazard distribution is unspecified. The AFT models are parametric and we have to assign an error distribution. I chose the Weibull distribution for the jay data set. Previous analyses on this population have shown that this distribution "fits" the jays. 
+
+Cox proportional hazard models focus on the hazard function, or the instantaneous risk of death given survial up to that point in time. A key assumption of this model type is a hazard ratio that is proportional independent of time. Each individual in the population gets a hazard score based on the covariates at the time of the event (death) and a comparison to the covarite values of other individuals in the population.  
+
+TO better understand that, I am going to use the description from T. Therneau and C. Crowson at the Mayo Clinic. Think of a lottery where everyone in the population has tickets with the potential to win the prize each time numbers are drawn. In hazard models, the "prize" is death and we can think of the covariates as "tickets". How probable you are to win the prize of death dependents on how many tickets you buy, or the covariate values you have. Each individual has a risk score for this. At each death/event, individual risk scores are compared to others' risk scores to best predict the outcome at each drawing. 
+
+The sign of the coefficient can tell us if a covariate increases or decreases risk. A negative sign means a decreased hazard (higher probability of survival) while a postive sign means an increased hazard.   
+
+First model - Age at first time breeding as covariate 
+```{r}
+#Age at first breeding 
+cox1 <- coxph(jay.ob ~ AgeFirstBreed, data = jay.df)
+summary(cox1)
+```
+
+The coefficient is postive, so there is an increased risk of death. The exp(coef) term is the risk score/beta estimate. 
+
+```{r}
+#Check for violation of proportional hazard 
+res.cox1 <- cox.zph(cox1)
+res.cox1
+plot(res.cox1)
+```
+
+
+
+
+```{r}
+#Sex as predictor
+cox2 <- coxph(jay.ob ~ Sex, data = jay.df)
+summary(cox2)
+res.cox2 <- cox.zph(cox2)
+res.cox2
+plot(res.cox2)
+
+#First year of breeding as predictor
+cox3 <- coxph(jay.ob ~ FirstYr, data = jay.df)
+summary(cox3)
+res.cox3 <- cox.zph(cox3)
+#res.cox3
+plot(res.cox3)
+
+#Age and sex
+cox4 <- coxph(jay.ob ~ AgeFirstBreed + Sex, data = jay.df)
+summary(cox4)
+
+#Hazard ratio - B1 + B2
+hr <- cox4$coefficients[1] + cox4$coefficients[2]
+hr
+
+#Include years experience, age, and sex, no interactions
+cox5 <- coxph(jay.ob ~ AgeFirstBreed + Sex + FirstYr, data = jay.df)
+res.cox5 <- cox.zph(cox5, transform = "km")
+#res.cox4
+plot(res.cox5)
+
+#Sex and FirstYr
+cox6 <- coxph(jay.ob ~ Sex + FirstYr, data = jay.df)
+summary(cox6)
+
+#Age first breed and first year
+cox7 <- coxph(jay.ob ~ AgeFirstBreed + FirstYr, data = jay.df)
+summary(cox7)
+
+summary(cox1)
+summary(cox2)
+summary(cox3)
+summary(cox4)
+
+```
+
+Sex is not significant in any of the models. This result is a little surprising but it is consistent with what Gordon and Bruce found some years ago. From the KM curve we saw that the lines for each sex were not all that different.  
+
+The year and age at the first time breeding for each bird were significant in all models. Well, at least some years. I coded year as a factor. It has 34 levels (1981- 2015). Is this the correct way to use this covariate in the models?
+
+###Accerlated Failure Time Models
+AFT models describe the length of time to "failure", or in this case death. Another application of this method, for example, could be for flowering time. Thus, "failure" does not always mean death. In AFT models, the covariates influence how soon failure happens. Postive coefficients mean an increase in failure time, or a longer life, while negative coefficients mean a decrease in failure time, or quicker death/shorter life. Recall what the signs of the coefficients tell us about the influence on risk in the Cox proportional hazard models. The signs are the opposite from AFT models. 
+
+We can't directly compare the two types of models.
+
+```{r}
+
+#AFT model with Weibull distribution and age at first breeding 
+AFT.age <- survreg(jay.ob ~ AgeFirstBreed, data = jay.df, dist = "weibull")
+
+#AFT model with Weibull distribution and sex
+AFT.sex <- survreg(jay.ob ~ Sex, data = jay.df, dist = "weibull")
+
+#AFT model with Weibull distribution and year when breeding first happened
+AFT.yr <- survreg(jay.ob ~ FirstYr, data = jay.df, dist = "weibull")
+
+#All 3 covariates 
+AFT.3 <- survreg(jay.ob ~ AgeFirstBreed + Sex + FirstYr, 
+      data = jay.df, dist = "weibull")
+
+
+
+summary(AFT.age)
+summary(AFT.sex)
+summary(AFT.yr)
+summary(AFT.3)
+```
+
